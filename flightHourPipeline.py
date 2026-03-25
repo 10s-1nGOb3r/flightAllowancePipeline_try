@@ -22,6 +22,8 @@ def dataCleansingFormatting():
 
     df["BLOCK"] = pd.to_timedelta(df["BLOCK"].astype(str) + ":00",errors="coerce")
     df["BLOCK"] = df["BLOCK"].ffill()
+    df["DATE"] = df["DATE"].astype(str)
+    df["keyCockpitSmtFda"] = df["DATE"] + "." + df["FLT"] + "." + df["DEP"] + "." + df["ARR"]
     df["blockDec"] = df["BLOCK"].dt.total_seconds() / 3600
     df["blockDec"] = df["blockDec"].round(2)
 
