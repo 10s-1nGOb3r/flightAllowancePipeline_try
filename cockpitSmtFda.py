@@ -7,6 +7,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(script_dir,"input","smtMealsFdaCockpit.csv")
 file_path2 = os.path.join(script_dir,"input","crewSubBase.csv")
 file_path3 = os.path.join(script_dir,"input","stationDb.csv")
+file_path4 = os.path.join(script_dir,"output","detailFlightHourAllowance.csv")
 save_at = os.path.join(script_dir,"output","detailCockpitSmtFda.csv")
 
 df = pd.read_csv(file_path,sep=";")
@@ -98,8 +99,25 @@ df["endDecimalLocalTime"] = np.where(endDecimal > 0,endDecimal + df["lastLegTran
 df["endDecimalLocalTime"] = np.where(df["endDecimalLocalTime"] >= 24,df["endDecimalLocalTime"] - 24,df["endDecimalLocalTime"])
 df["endDecimalLocalTime"] = df["endDecimalLocalTime"].round(2)
 
-#df = pd.merge(df, df3[["activityBase","MIDNIGHT TIME"]],left_on="arrivalLastLegFlightNumber",right_on="activityBase",how="left")
-
 df["dateSignOff"] = np.where(df["endDecimalLocalTime"] >= 24,df["dateCountFiltered"] + pd.Timedelta(days=1),df["dateCountFiltered"])
+
+df["dateSignOff"] = df["dateSignOff"].astype(str)
+df["keyflightHourAllowance"] = np.where(df["dhcLastLegValidation"] == 1,df["dateSignOff"] + "." + df["lastLegFlightNumber"] + "." + df["departureLastLegFlightNumber"] + "." + df["arrivalLastLegFlightNumber"],0)
+
+df4 = pd.read_csv(file_path4,sep=";")
+
+df = pd.merge(df,df4[["keyCockpitSmtFda","blockDec"]].rename(columns={"blockDec": "blockDecDhcLastLeg"}),left_on="keyflightHourAllowance",right_on="keyCockpitSmtFda",how="left")
+
+df["blockDecDhcLastLeg"] = df["blockDecDhcLastLeg"].fillna(0)
+
+time_parts2 = df["FDP"].str.split(":")
+hours2 = time_parts2.str[0].astype(float)
+minutes_decimal2 = time_parts2.str[1].astype(float) / 60
+fdpDecimal = hours2 + minutes_decimal2
+fdpDecimal = fdpDecimal.round(2)
+df["fdpDec"] = fdpDecimal
+
+df["fda"] = np.where((df["monthValidation"] == 1) & df["fdpDec"] > 0 & (df["dhcLastLegValidation"] == 1),df["fdpDec"] - df["blockDecDhcLastLeg"],0)
+df["fda"] = df["fda"].round(2)
 
 df.to_csv(save_at,sep=";",index=False)
