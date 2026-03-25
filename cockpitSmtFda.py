@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+from datetime import datetime
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(script_dir,"input","smtMealsFdaCockpit.csv")
@@ -52,5 +53,26 @@ beginDecLt = df["beginDec"] + df["TRANSITION HOUR"]
 df["dateCount"] = pd.to_datetime(df["dateCount"], format="%d/%m/%Y", errors="coerce")
 
 df["dateCountFiltered"] = np.where(beginDecLt >= 24,df["dateCount"] + pd.Timedelta(days=1),df["dateCount"])
+
+timeNow = datetime.now()
+#If you need a certain time filtering, please activate 
+#the script below, deactivate scipt "timeNow = datetime.now()" above 
+#and edit timeNow on the first line
+#timeNow = "01/02/2026"
+#timeNow = datetime.strptime(timeNow, "%d/%m/%Y")
+#timeNow = timeNow.date()
+currentMonth = timeNow.month
+if currentMonth == 1:
+    currentMonth = 12
+else:
+    currentMonth = currentMonth - 1
+
+currentYear = timeNow.year
+if currentMonth == 12:
+    currentYear = currentYear - 1
+
+df["monthValidation"] = np.where((df["dateCountFiltered"].dt.month == currentMonth) & (df["dateCountFiltered"].dt.year == currentYear),1,0)
+
+df["lastLeg"] = df["Duty"].str.strip().str.split(" ").str[-1].str.replace("-", "")
 
 df.to_csv(save_at,sep=";",index=False)
