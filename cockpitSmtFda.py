@@ -56,7 +56,8 @@ df["dateCountFiltered"] = np.where(beginDecLt >= 24,df["dateCount"] + pd.Timedel
 
 timeNow = datetime.now()
 #If you need a certain time filtering, please activate 
-#the script below, deactivate scipt "timeNow = datetime.now()" above 
+#the script below, 
+#deactivate scipt "timeNow = datetime.now()" above 
 #and edit timeNow on the first line
 #timeNow = "01/02/2026"
 #timeNow = datetime.strptime(timeNow, "%d/%m/%Y")
@@ -74,5 +75,31 @@ if currentMonth == 12:
 df["monthValidation"] = np.where((df["dateCountFiltered"].dt.month == currentMonth) & (df["dateCountFiltered"].dt.year == currentYear),1,0)
 
 df["lastLeg"] = df["Duty"].str.strip().str.split(" ").str[-1].str.replace("-", "")
+
+df["dhcLastLegValidation"] = np.where(df["lastLeg"].str.contains("*", na=False,regex=False),1,0)
+
+df["lastLegFlightNumber"] = df["Duty"].str.strip().str.split(" ").str[-2].str.split("-").str[-1]
+
+df["departureLastLegFlightNumber"] = df["Duty"].str.strip().str.split(" ").str[-2].str.split("-").str[-2]
+
+df["arrivalLastLegFlightNumber"] = df["Duty"].str.strip().str.split(" ").str[-1].str.split("-").str[-1]
+
+df = pd.merge(df,df3[["activityBase","TRANSITION HOUR"]].rename(columns={"activityBase": "activityBaseArrivalLastLeg","TRANSITION HOUR": "lastLegTransitionHour"}),left_on="arrivalLastLegFlightNumber",right_on="activityBaseArrivalLastLeg",how="left")
+
+df["lastLegTransitionHour"] = df["lastLegTransitionHour"].astype(float)
+
+time_parts = df["End"].str.split(":")
+hours = time_parts.str[0].astype(float)
+minutes_decimal = time_parts.str[1].astype(float) / 60
+endDecimal = hours + minutes_decimal
+endDecimal = endDecimal.round(2)
+
+df["endDecimalLocalTime"] = np.where(endDecimal > 0,endDecimal + df["lastLegTransitionHour"],0)
+df["endDecimalLocalTime"] = np.where(df["endDecimalLocalTime"] >= 24,df["endDecimalLocalTime"] - 24,df["endDecimalLocalTime"])
+df["endDecimalLocalTime"] = df["endDecimalLocalTime"].round(2)
+
+#df = pd.merge(df, df3[["activityBase","MIDNIGHT TIME"]],left_on="arrivalLastLegFlightNumber",right_on="activityBase",how="left")
+
+df["dateSignOff"] = np.where(df["endDecimalLocalTime"] >= 24,df["dateCountFiltered"] + pd.Timedelta(days=1),df["dateCountFiltered"])
 
 df.to_csv(save_at,sep=";",index=False)
