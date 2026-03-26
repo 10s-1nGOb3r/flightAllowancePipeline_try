@@ -40,20 +40,26 @@ df["activityBase"] = np.where(df["FDP"] == "00:00",df["crewBase"],df["Duty"].str
 
 df3 = pd.read_csv(file_path3,sep=";")
 
-df = pd.merge(df, df3[["activityBase","TRANSITION HOUR"]], on="activityBase", how="left")
+df3_unique = df3[["activityBase", "TRANSITION HOUR", "SIGN ON"]].drop_duplicates(subset=["activityBase"])
+
+df = pd.merge(df, df3_unique, on="activityBase", how="left")
 
 df["TRANSITION HOUR"] = df["TRANSITION HOUR"].astype(float)
+df["SIGN ON"] = df["SIGN ON"].astype(float)
 
 time_obj = pd.to_timedelta(df["Begin"].astype(str) + ":00", errors="coerce")
 df["beginDec"] = time_obj.dt.total_seconds() / 3600
 df["beginDec"] = df["beginDec"].fillna(0)
 df["beginDec"] = df["beginDec"].round(2)
 
-beginDecLt = df["beginDec"] + df["TRANSITION HOUR"]
+df["beginDecLt"] = df["beginDec"] + df["TRANSITION HOUR"] + df["SIGN ON"]
+
+df["beginDecLt"] = np.where(df["beginDecLt"] >= 24,df["beginDecLt"] - 24,df["beginDecLt"])
+df["beginDecLt"] = df["beginDecLt"].round(2)
 
 df["dateCount"] = pd.to_datetime(df["dateCount"], format="%d/%m/%Y", errors="coerce")
 
-df["dateCountFiltered"] = np.where(beginDecLt >= 24,df["dateCount"] + pd.Timedelta(days=1),df["dateCount"])
+df["dateCountFiltered"] = np.where(df["beginDecLt"] < df["TRANSITION HOUR"],df["dateCount"] + pd.Timedelta(days=1),df["dateCount"])
 
 timeNow = datetime.now()
 #If you need a certain time filtering, please activate 
@@ -106,7 +112,9 @@ df["keyflightHourAllowance"] = np.where(df["dhcLastLegValidation"] == 1,df["date
 
 df4 = pd.read_csv(file_path4,sep=";")
 
-df = pd.merge(df,df4[["keyCockpitSmtFda","blockDec"]].rename(columns={"blockDec": "blockDecDhcLastLeg"}),left_on="keyflightHourAllowance",right_on="keyCockpitSmtFda",how="left")
+df4_unique = df4[["keyCockpitSmtFda", "blockDec"]].drop_duplicates(subset=["keyCockpitSmtFda"])
+
+df = pd.merge(df, df4_unique.rename(columns={"blockDec": "blockDecDhcLastLeg"}),left_on="keyflightHourAllowance", right_on="keyCockpitSmtFda", how="left")
 
 df["blockDecDhcLastLeg"] = df["blockDecDhcLastLeg"].fillna(0)
 
