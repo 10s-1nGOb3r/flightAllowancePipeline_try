@@ -128,4 +128,8 @@ df["fdpDec"] = fdpDecimal
 df["fda"] = np.where((df["monthValidation"] == 1) & df["fdpDec"] > 0 & (df["dhcLastLegValidation"] == 1),df["fdpDec"] - df["blockDecDhcLastLeg"],0)
 df["fda"] = df["fda"].round(2)
 
+df["smtByDuty"] = np.where((df["monthValidation"] == 1) &
+                           (df["activityBase"] == df["crewBase"]) &
+                           (df["fdpDec"] > 0),1,0)
+
 df.to_csv(save_at,sep=";",index=False)
