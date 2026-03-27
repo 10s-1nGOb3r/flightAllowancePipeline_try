@@ -36,7 +36,13 @@ df["dateCount"] = pd.to_datetime(df["Date"], format="%d/%m/%Y", errors="coerce")
 df["dateCount"] = df["dateCount"].dt.strftime("%d/%m/%Y")
 df["dateCount"] = df["dateCount"].fillna("21/09/1967")
 
-df["activityBase"] = np.where(df["FDP"] == "00:00",df["crewBase"],df["Duty"].str[:3])
+conditions2 = [(df["Duty"].str.contains("*",na=False,regex=False) == True) & (df["FDP"] == "00:00"),
+               (df["Duty"].str.contains("*",na=False,regex=False) == True) & (df["FDP"] != "00:00"),
+               (df["Duty"].str.contains("*",na=False,regex=False) == False) & (df["FDP"] != "00:00"),
+               (df["Duty"].str.contains("*",na=False,regex=False) == False) & (df["FDP"] == "00:00")
+]
+choices2 = [df["Duty"].str[:3],df["Duty"].str[:3],df["Duty"].str[:3],df["crewBase"]]
+df["activityBase"] = np.select(conditions2,choices2,default="0")
 
 df3 = pd.read_csv(file_path3,sep=";")
 
@@ -128,8 +134,17 @@ df["fdpDec"] = fdpDecimal
 df["fda"] = np.where((df["monthValidation"] == 1) & df["fdpDec"] > 0 & (df["dhcLastLegValidation"] == 1),df["fdpDec"] - df["blockDecDhcLastLeg"],0)
 df["fda"] = df["fda"].round(2)
 
-df["smtByDuty"] = np.where((df["monthValidation"] == 1) &
-                           (df["activityBase"] == df["crewBase"]) &
-                           (df["fdpDec"] > 0),1,0)
+df["dhcDayOneBefore"] = np.where((df["Duty"].str.contains("*",na=False,regex=False) == True) & (df["fda"] == 0) & (df["monthValidation"] == 1),1,0)
+
+df["activityBase2"] = df["activityBase"].replace("HLP","CGK")
+
+df["sppdValidation"] = np.where(df["Duty"].str.contains("SPPD",na=False,regex=False),1,0)
+
+conditions = [(df["monthValidation"] == 1) & (df["activityBase2"] == df["crewBase"]) & (df["fdpDec"] > 0) & (df["dhcDayOneBefore"] == 0) & (df["sppdValidation"] == 0),
+              (df["monthValidation"] == 1) & (df["activityBase2"] == df["crewBase"]) & (df["fdpDec"] == 0) & (df["dhcDayOneBefore"] == 1) & (df["sppdValidation"] == 0)
+]
+choices = [1,1]
+
+df["smtByDuty"] = np.select(conditions,choices,default=0)
 
 df.to_csv(save_at,sep=";",index=False)
