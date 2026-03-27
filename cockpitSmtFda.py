@@ -8,6 +8,7 @@ file_path = os.path.join(script_dir,"input","smtMealsFdaCockpit.csv")
 file_path2 = os.path.join(script_dir,"input","crewSubBase.csv")
 file_path3 = os.path.join(script_dir,"input","stationDb.csv")
 file_path4 = os.path.join(script_dir,"output","detailFlightHourAllowance.csv")
+file_path5 = os.path.join(script_dir,"input","smtCode.csv")
 save_at = os.path.join(script_dir,"output","detailCockpitSmtFda.csv")
 
 df = pd.read_csv(file_path,sep=";")
@@ -146,5 +147,32 @@ conditions = [(df["monthValidation"] == 1) & (df["activityBase2"] == df["crewBas
 choices = [1,1]
 
 df["smtByDuty"] = np.select(conditions,choices,default=0)
+
+#For smtByTraining beware of training code such as
+#TR,PC,TRI,PCI of ATR Crew because its done in Bangkok
+#and not suppose to receive SMT
+
+df["groundPatternCode"] = np.where((df["monthValidation"] == 1) & (df["sppdValidation"] == 0) & (df["smtByDuty"] == 0) & (df["fdpDec"] == 0) & (df["dhcDayOneBefore"] == 0),df["Duty"],0)
+df["groundPatternCode"] = df["groundPatternCode"].str.replace(" ","")
+df["groundPatternCode"] = df["groundPatternCode"].fillna("0")
+
+df5 = pd.read_csv(file_path5,sep=";")
+
+df5_unique = df5[["TRAINING CODE", "LOC"]].drop_duplicates(subset=["TRAINING CODE"])
+
+df = pd.merge(df, df5_unique,left_on="groundPatternCode",right_on="TRAINING CODE",how="left")
+
+collection3 = ["TRAINING CODE","LOC"]
+for field3 in collection3:
+    df[field3] = df[field3].fillna("0")
+
+conditions3 = [(df["col5"] == "ATR") & (df["TRAINING CODE"] == "TR"),
+               (df["col5"] == "ATR") & (df["TRAINING CODE"] == "TRI"),
+               (df["col5"] == "ATR") & (df["TRAINING CODE"] == "PC"),
+               (df["col5"] == "ATR") & (df["TRAINING CODE"] == "PCI"),]
+choices3 = ["BKK","BKK","BKK","BKK"]
+df["LOC"] = np.select(conditions3,choices3,default=df["LOC"])
+
+#df["smtByTraining"]
 
 df.to_csv(save_at,sep=";",index=False)
