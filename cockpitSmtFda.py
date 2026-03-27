@@ -173,6 +173,13 @@ conditions3 = [(df["col5"] == "ATR") & (df["TRAINING CODE"] == "TR"),
 choices3 = ["BKK","BKK","BKK","BKK"]
 df["LOC"] = np.select(conditions3,choices3,default=df["LOC"])
 
-#df["smtByTraining"]
+conditions4 = [(df["LOC"] == "CGK") & (df["col3"] == "CGK"),
+               (df["LOC"] == "SUB") & (df["col3"] == "SUB"),
+               (df["LOC"] == "CGKSUB") & (df["col3"] == "CGK"),
+               (df["LOC"] == "CGKSUB") & (df["col3"] == "SUB")
+]
+choices4 = [1,1,1,1]
+
+df["smtByTraining"] = np.select(conditions4,choices4,default=0)
 
 df.to_csv(save_at,sep=";",index=False)
