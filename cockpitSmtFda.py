@@ -158,11 +158,11 @@ df["groundPatternCode"] = df["groundPatternCode"].fillna("0")
 
 df5 = pd.read_csv(file_path5,sep=";")
 
-df5_unique = df5[["TRAINING CODE", "LOC", "mealsLoc"]].drop_duplicates(subset=["TRAINING CODE"])
+df5_unique = df5[["TRAINING CODE", "LOC"]].drop_duplicates(subset=["TRAINING CODE"])
 
 df = pd.merge(df, df5_unique,left_on="groundPatternCode",right_on="TRAINING CODE",how="left")
 
-collection3 = ["TRAINING CODE","LOC","mealsLoc"]
+collection3 = ["TRAINING CODE","LOC"]
 for field3 in collection3:
     df[field3] = df[field3].fillna("0")
 
@@ -183,6 +183,26 @@ choices4 = [1,1,1,1]
 df["smtByTraining"] = np.select(conditions4,choices4,default=0)
 
 df["crewMealsByActiveFlight"] = np.where((df["monthValidation"] == 1) & df["fdpDec"] > 0,1,0)
+
+sppdPosition = df["Duty"].str.find("SPPD")
+
+conditions6 = [(df["monthValidation"] == 1) & (df["sppdValidation"] == 1) & (df["fdpDec"] == 0) & (sppdPosition > 4),
+               (df["monthValidation"] == 1) & (df["sppdValidation"] == 1) & (df["fdpDec"] == 0) & (sppdPosition == 4),
+               (df["monthValidation"] == 1) & (df["sppdValidation"] == 0) & (df["fdpDec"] == 0)
+]
+choices6 = [df["Duty"].str.split('-').str[1].str.split(' ').str[0],
+            df["Duty"].str.split('-').str[-2].str.strip(),
+            df["Duty"].str.replace(" ","")
+]
+df["groundPatternCodeForCrewMeals"] = np.select(conditions6,choices6,default=0)
+
+df6_unique = df5[["TRAINING CODE", "mealsLoc"]].drop_duplicates(subset=["TRAINING CODE"])
+df = pd.merge(df, df6_unique,left_on="groundPatternCodeForCrewMeals",right_on="TRAINING CODE",how="left")
+df = df.rename(columns={"TRAINING CODE_y": "trainingCodeForPatternCodeCrewMeals"})
+
+df["groundPatternCodeForCrewMeals"] = df["groundPatternCodeForCrewMeals"].fillna(0)
+df["trainingCodeForPatternCodeCrewMeals"] = df["trainingCodeForPatternCodeCrewMeals"].fillna(0)
+df["mealsLoc"] = df["mealsLoc"].fillna(0)
 
 conditions5 = [(df["monthValidation"] == 1) & (df["mealsLoc"] == "CGKSUB") & (df["crewBase"] == "CGK"),
                (df["monthValidation"] == 1) & (df["mealsLoc"] == "CGKSUB") & (df["crewBase"] == "SUB")
