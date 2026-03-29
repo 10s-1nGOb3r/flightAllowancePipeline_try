@@ -158,11 +158,11 @@ df["groundPatternCode"] = df["groundPatternCode"].fillna("0")
 
 df5 = pd.read_csv(file_path5,sep=";")
 
-df5_unique = df5[["TRAINING CODE", "LOC"]].drop_duplicates(subset=["TRAINING CODE"])
+df5_unique = df5[["TRAINING CODE", "LOC", "mealsLoc"]].drop_duplicates(subset=["TRAINING CODE"])
 
 df = pd.merge(df, df5_unique,left_on="groundPatternCode",right_on="TRAINING CODE",how="left")
 
-collection3 = ["TRAINING CODE","LOC"]
+collection3 = ["TRAINING CODE","LOC","mealsLoc"]
 for field3 in collection3:
     df[field3] = df[field3].fillna("0")
 
@@ -181,5 +181,16 @@ conditions4 = [(df["LOC"] == "CGK") & (df["col3"] == "CGK"),
 choices4 = [1,1,1,1]
 
 df["smtByTraining"] = np.select(conditions4,choices4,default=0)
+
+df["crewMealsByActiveFlight"] = np.where((df["monthValidation"] == 1) & df["fdpDec"] > 0,1,0)
+
+conditions5 = [(df["monthValidation"] == 1) & (df["mealsLoc"] == "CGKSUB") & (df["crewBase"] == "CGK"),
+               (df["monthValidation"] == 1) & (df["mealsLoc"] == "CGKSUB") & (df["crewBase"] == "SUB")
+]
+choices5 = [1,1]
+
+df["crewMealsByTraining"] = np.select(conditions5,choices5,default=0)
+
+df["crewMeals"] = df["crewMealsByActiveFlight"].fillna(0) + df["crewMealsByTraining"].fillna(0)
 
 df.to_csv(save_at,sep=";",index=False)
