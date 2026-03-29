@@ -20,13 +20,6 @@ def dataCleansingFormatting():
         df[field] = df[field].ffill()
         df[field] = df[field].astype(str)
 
-    df["BLOCK"] = pd.to_timedelta(df["BLOCK"].astype(str) + ":00",errors="coerce")
-    df["BLOCK"] = df["BLOCK"].ffill()
-    df["DATE"] = df["DATE"].astype(str)
-    df["keyCockpitSmtFda"] = df["DATE"] + "." + df["FLT"] + "." + df["DEP"] + "." + df["ARR"]
-    df["blockDec"] = df["BLOCK"].dt.total_seconds() / 3600
-    df["blockDec"] = df["blockDec"].round(2)
-
     conditions = [
             df["Crew"].str.contains("CPT", na=False),
             df["Crew"].str.contains("FO", na=False),
@@ -36,6 +29,23 @@ def dataCleansingFormatting():
     choices = ["CPT","FO","FA1","FA"]
 
     df["RANK"] = np.select(conditions,choices,default="0")
+
+    conditions3 = [(df["DATE"].dt.day < 16) & (df["RANK"] == "CPT"),
+                   (df["DATE"].dt.day >= 16) & (df["RANK"] == "CPT"),
+                   (df["DATE"].dt.day < 16) & (df["RANK"] == "FO"),
+                   (df["DATE"].dt.day >= 16) & (df["RANK"] == "FO"),
+                   (df["DATE"].dt.day > 0) & (df["RANK"] == "FA1"),
+                   (df["DATE"].dt.day > 0) & (df["RANK"] == "FA")
+    ]
+    choices3 = [1,2,1,2,2,2]
+    df["fataPayment"] = np.select(conditions3,choices3,default=0)
+
+    df["BLOCK"] = pd.to_timedelta(df["BLOCK"].astype(str) + ":00",errors="coerce")
+    df["BLOCK"] = df["BLOCK"].ffill()
+    df["DATE"] = df["DATE"].astype(str)
+    df["keyCockpitSmtFda"] = df["DATE"] + "." + df["FLT"] + "." + df["DEP"] + "." + df["ARR"]
+    df["blockDec"] = df["BLOCK"].dt.total_seconds() / 3600
+    df["blockDec"] = df["blockDec"].round(2)
 
     conditions2 = [
             df["Crew"].str.contains("CPT", na=False),
@@ -56,8 +66,8 @@ def dataCleansingFormatting():
 
 dataCleansingFormatting()
 
-df2 = df[["YEAR","MONTH","Crew","blockDec"]]
-df2 = df2.groupby(["YEAR","MONTH","Crew"]).agg(
+df2 = df[["YEAR","MONTH","fataPayment","RANK","Crew","blockDec"]]
+df2 = df2.groupby(["YEAR","MONTH","fataPayment","RANK","Crew"]).agg(
     totalFlightHour = ("blockDec","sum")
 ).reset_index()
 
