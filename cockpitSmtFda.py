@@ -10,6 +10,7 @@ file_path3 = os.path.join(script_dir,"input","stationDb.csv")
 file_path4 = os.path.join(script_dir,"output","detailFlightHourAllowance.csv")
 file_path5 = os.path.join(script_dir,"input","smtCode.csv")
 save_at = os.path.join(script_dir,"output","detailCockpitSmtFda.csv")
+save_at2 = os.path.join(script_dir,"output","cockpitSmtFdaMeals.csv")
 
 df = pd.read_csv(file_path,sep=";")
 
@@ -87,6 +88,9 @@ if currentMonth == 12:
     currentYear = currentYear - 1
 
 df["monthValidation"] = np.where((df["dateCountFiltered"].dt.month == currentMonth) & (df["dateCountFiltered"].dt.year == currentYear),1,0)
+
+df["month"] = np.where(df["monthValidation"] == 1,df["dateCountFiltered"].dt.month,0)
+df["year"] = np.where(df["monthValidation"] == 1,df["dateCountFiltered"].dt.year,0)
 
 df["lastLeg"] = df["Duty"].str.strip().str.split(" ").str[-1].str.replace("-", "")
 
@@ -213,4 +217,14 @@ df["crewMealsByTraining"] = np.select(conditions5,choices5,default=0)
 
 df["crewMeals"] = df["crewMealsByActiveFlight"].fillna(0) + df["crewMealsByTraining"].fillna(0)
 
+df7 = df.groupby(["year","month","ID"]).agg(
+    fda = ("fda","sum"),
+    smtByDuty = ("smtByDuty","sum"),
+    smtByTraining = ("smtByTraining","sum"),
+    crewMeals = ("crewMeals","sum")
+).reset_index()
+df7["fda"] = df7["fda"].round(2)
+df7["smtTotal"] = df7["smtByDuty"] + df7["smtByTraining"]
+
 df.to_csv(save_at,sep=";",index=False)
+df7.to_csv(save_at2,sep=";",index=False)
