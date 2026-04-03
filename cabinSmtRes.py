@@ -134,4 +134,6 @@ choices3 = [1,1,1,1]
 
 df["smtByTraining"] = np.select(conditions3,choices3,default=0)
 
+df["crewMealsByActiveFlight"] = np.where((df["monthValidation"] == 1) & df["fda"] > 0,1,0)
+
 df.to_csv(save_at,sep=";",index=False)
