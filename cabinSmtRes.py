@@ -8,7 +8,9 @@ file_path = os.path.join(script_dir,"input","smtMealsResCabin.csv")
 file_path2 = os.path.join(script_dir,"input","cabinCrewSubBase.csv")
 file_path3 = os.path.join(script_dir,"input","stationDb.csv")
 file_path4 = os.path.join(script_dir,"input","smtCabinCode.csv")
+file_path5 = os.path.join(script_dir,"input","structuralCabinCrew.csv")
 save_at = os.path.join(script_dir,"output","detailCabinSmtRes.csv")
+save_at2 = os.path.join(script_dir,"output","cabinSmtMealsRes.csv")
 
 df = pd.read_csv(file_path,sep=";")
 
@@ -32,6 +34,17 @@ df = pd.merge(df, df2[["ID","BASE"]], on="ID", how="left")
 df["BASE"] = df["BASE"].fillna("CGK")
 df= df.rename(columns={"BASE": "crewBase"})
 df["crewBase"] = df["crewBase"].str.replace(" ","")
+
+df5 = pd.read_csv(file_path5,sep=";")
+df5["ID"] = df5["ID"].astype(str)
+
+df5_unique = df5[["ID", "VALIDATION"]].drop_duplicates(subset=["ID"])
+
+df = pd.merge(df, df5_unique,on="ID",how="left")
+
+df = df.rename(columns={"VALIDATION": "cabinCrewStructuralValidation"})
+df["cabinCrewStructuralValidation"] = df["cabinCrewStructuralValidation"].fillna("0")
+df["cabinCrewStructuralValidation"] = df["cabinCrewStructuralValidation"].astype(int)
 
 df["dateCount"] = pd.to_datetime(df["Date"], format="%d/%m/%Y", errors="coerce")
 df["dateCount"] = df["dateCount"].dt.strftime("%d/%m/%Y")
@@ -104,8 +117,8 @@ df["activityBase2"] = df["activityBase"].replace("HLP","CGK")
 
 df["sppdValidation"] = np.where(df["Duty"].str.contains("SPPD",na=False,regex=False),1,0)
 
-conditions = [(df["monthValidation"] == 1) & (df["activityBase2"] == df["crewBase"]) & (df["fda"] > 0) & (df["dhcDayOneBefore"] == 0) & (df["sppdValidation"] == 0),
-              (df["monthValidation"] == 1) & (df["activityBase2"] == df["crewBase"]) & (df["fda"] == 0) & (df["dhcDayOneBefore"] == 1) & (df["sppdValidation"] == 0)
+conditions = [(df["monthValidation"] == 1) & (df["activityBase2"] == df["crewBase"]) & (df["fda"] > 0) & (df["dhcDayOneBefore"] == 0) & (df["sppdValidation"] == 0) & (df["cabinCrewStructuralValidation"] == 0),
+              (df["monthValidation"] == 1) & (df["activityBase2"] == df["crewBase"]) & (df["fda"] == 0) & (df["dhcDayOneBefore"] == 1) & (df["sppdValidation"] == 0) & (df["cabinCrewStructuralValidation"] == 0)
 ]
 choices = [1,1]
 
@@ -125,10 +138,10 @@ collection3 = ["TRAINING CODE","LOC"]
 for field3 in collection3:
     df[field3] = df[field3].fillna("0")
 
-conditions3 = [(df["LOC"] == "CGK") & (df["col3"] == "CGK"),
-               (df["LOC"] == "SUB") & (df["col3"] == "SUB"),
-               (df["LOC"] == "CGKSUB") & (df["col3"] == "CGK"),
-               (df["LOC"] == "CGKSUB") & (df["col3"] == "SUB")
+conditions3 = [(df["LOC"] == "CGK") & (df["col3"] == "CGK") & (df["cabinCrewStructuralValidation"] == 0),
+               (df["LOC"] == "SUB") & (df["col3"] == "SUB") & (df["cabinCrewStructuralValidation"] == 0),
+               (df["LOC"] == "CGKSUB") & (df["col3"] == "CGK") & (df["cabinCrewStructuralValidation"] == 0),
+               (df["LOC"] == "CGKSUB") & (df["col3"] == "SUB") & (df["cabinCrewStructuralValidation"] == 0)
 ]
 choices3 = [1,1,1,1]
 
@@ -136,4 +149,23 @@ df["smtByTraining"] = np.select(conditions3,choices3,default=0)
 
 df["crewMealsByActiveFlight"] = np.where((df["monthValidation"] == 1) & df["fda"] > 0,1,0)
 
+conditions4 = [(df["monthValidation"] == 1) & (df["fda"] == 0) & (df["Duty"].str.contains("RCGK",na=False)),
+               (df["monthValidation"] == 1) & (df["fda"] == 0) & (df["Duty"].str.contains("RSUB",na=False)),
+               (df["monthValidation"] == 1) & (df["fda"] == 0) & (df["Duty"].str.contains("RHLP",na=False))
+]
+
+choices4 = [
+    1,1,1
+]
+
+df["reserve"] = np.select(conditions4,choices4,default=0)
+
+df5 = df.groupby(["year","month","ID"]).agg(
+    smtByDuty = ("smtByDuty","sum"),
+    smtByTraining = ("smtByTraining","sum"),
+    crewMeals = ("crewMealsByActiveFlight","sum"),
+    crewReserve = ("reserve","sum")
+).reset_index()
+
 df.to_csv(save_at,sep=";",index=False)
+df5.to_csv(save_at2,sep=";",index=False)
