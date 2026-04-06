@@ -124,7 +124,16 @@ choices = [1,1]
 
 df["smtByDuty"] = np.select(conditions,choices,default=0)
 
-df["groundPatternCode"] = np.where((df["monthValidation"] == 1) & (df["sppdValidation"] == 0) & (df["smtByDuty"] == 0) & (df["fda"] == 0) & (df["dhcDayOneBefore"] == 0),df["Duty"],0)
+conditions5 = [(df["monthValidation"] == 1) & (df["sppdValidation"] == 0) & (df["smtByDuty"] == 0) & (df["fda"] == 0) & (df["dhcDayOneBefore"] == 0) & (df["Duty"].str.contains("-", na=False) == False),
+               (df["monthValidation"] == 1) & (df["sppdValidation"] == 0) & (df["smtByDuty"] == 0) & (df["fda"] == 0) & (df["dhcDayOneBefore"] == 0) & (df["Duty"].str.contains("-", na=False) == True)
+
+]
+
+choices5 = [df["Duty"],
+            df["Duty"].str.split('-').str[1]
+]
+
+df["groundPatternCode"] = np.select(conditions5,choices5,default="0")
 df["groundPatternCode"] = df["groundPatternCode"].str.replace(" ","")
 df["groundPatternCode"] = df["groundPatternCode"].fillna("0")
 
