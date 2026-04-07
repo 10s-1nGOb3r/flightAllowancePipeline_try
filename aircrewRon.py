@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 import os
+import calendar
+from datetime import datetime
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(script_dir,"input","rawRonData.csv")
@@ -50,5 +52,23 @@ collection2 = ["on","off"]
 for field4 in collection2:
     delta = pd.to_timedelta(df[f"{field4}ChockDecimal"] + df["TRANSITION HOUR"], unit='h')
     df[f"{field4}ChockLt"] = (df[f"date{field4.capitalize()}ChockLt"] + delta).dt.strftime("%d/%m/%Y %H:%M:%S")
+
+timeNow = datetime.now()
+currentMonth = timeNow.month
+if currentMonth == 1:
+    currentMonth = 12
+else:
+    currentMonth = currentMonth - 1
+
+currentYear = timeNow.year
+if currentMonth == 12:
+    currentYear = currentYear - 1
+
+dateBegin = pd.to_datetime(f"{currentYear}-{currentMonth}-01")
+dateBegin = dateBegin.strftime("%d/%m/%Y")
+dateEnd = pd.to_datetime(f"{currentYear}-{currentMonth}-{calendar.monthrange(currentYear, currentMonth)[1]}")
+dateEnd = dateEnd.strftime("%d/%m/%Y")
+
+#df["onChockLt"] = np.where(df["onChockLt"].dt.month < currentMonth,df["onChockLt"] == ""
 
 df.to_csv(save_at,sep=";",index=False)
