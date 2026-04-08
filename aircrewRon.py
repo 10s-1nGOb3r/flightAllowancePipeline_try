@@ -41,6 +41,14 @@ df = pd.merge(df, df2_unique,left_on="Port", right_on="activityBase", how="left"
 df["TRANSITION HOUR"] = df["TRANSITION HOUR"].fillna("0")
 df["TRANSITION HOUR"] = df["TRANSITION HOUR"].astype(int)
 
+df["onChockTimeLt"] = np.where((df["onChockDecimal"] + df["TRANSITION HOUR"]) > 24,(df["onChockDecimal"] + df["TRANSITION HOUR"]) - 24,df["onChockDecimal"] + df["TRANSITION HOUR"])
+onChockDelta = pd.to_timedelta(df["onChockTimeLt"].round(2), unit='h')
+df["onChockTimeLt"] = (pd.to_datetime('2026-01-01') + onChockDelta).dt.time
+
+df["offChockTimeLt"] = np.where((df["offChockDecimal"] + df["TRANSITION HOUR"]) > 24,(df["offChockDecimal"] + df["TRANSITION HOUR"]) - 24,df["offChockDecimal"] + df["TRANSITION HOUR"])
+offChockDelta = pd.to_timedelta(df["offChockTimeLt"].round(2), unit='h')
+df["offChockTimeLt"] = (pd.to_datetime('2026-01-01') + offChockDelta).dt.time
+
 collection1 = ["dateOnChock","dateOffChock"]
 for field3 in collection1:
     df[f"{field3}Lt"] = pd.to_datetime(df[field3], format="%d/%m/%Y", errors="coerce")
@@ -54,21 +62,62 @@ for field4 in collection2:
     df[f"{field4}ChockLt"] = (df[f"date{field4.capitalize()}ChockLt"] + delta).dt.strftime("%d/%m/%Y %H:%M:%S")
 
 timeNow = datetime.now()
-currentMonth = timeNow.month
-if currentMonth == 1:
-    currentMonth = 12
-else:
-    currentMonth = currentMonth - 1
+last_month_dt = timeNow - pd.DateOffset(months=1)
+currentMonth = last_month_dt.month
+currentYear = last_month_dt.year
 
-currentYear = timeNow.year
-if currentMonth == 12:
-    currentYear = currentYear - 1
+dateBegin = f"01/{currentMonth:02d}/{currentYear}"
+dateEnd = f"{calendar.monthrange(currentYear, currentMonth)[1]:02d}/{currentMonth:02d}/{currentYear}"
 
-dateBegin = pd.to_datetime(f"{currentYear}-{currentMonth}-01")
-dateBegin = dateBegin.strftime("%d/%m/%Y")
-dateEnd = pd.to_datetime(f"{currentYear}-{currentMonth}-{calendar.monthrange(currentYear, currentMonth)[1]}")
-dateEnd = dateEnd.strftime("%d/%m/%Y")
+df["dateOnChockLt"] = pd.to_datetime(df["dateOnChockLt"])
+df["dateOnChock"] = pd.to_datetime(df["dateOnChock"], format="%d/%m/%Y", errors="coerce")
+df["dateOffChockLt"] = pd.to_datetime(df["dateOffChockLt"])
+df["dateOffChock"] = pd.to_datetime(df["dateOffChock"], format="%d/%m/%Y", errors="coerce")
 
-#df["onChockLt"] = np.where(df["onChockLt"].dt.month < currentMonth,df["onChockLt"] == ""
+conditions = [(df["dateOnChockLt"].dt.month < currentMonth) & (df["dateOnChock"].dt.year == currentYear),
+              (df["dateOnChockLt"].dt.month > currentMonth) & (df["dateOnChock"].dt.year == currentYear),
+              (df["dateOnChockLt"].dt.month > currentMonth) & (df["dateOnChock"].dt.year < currentYear),
+              (df["dateOnChockLt"].dt.month < currentMonth) & (df["dateOnChock"].dt.year > currentYear)
+]
+
+choices = [dateBegin,
+           dateEnd,
+           dateBegin,
+           dateEnd
+]
+
+conditions2 = [(df["dateOffChockLt"].dt.month < currentMonth) & (df["dateOffChock"].dt.year == currentYear),
+              (df["dateOffChockLt"].dt.month > currentMonth) & (df["dateOffChock"].dt.year == currentYear),
+              (df["dateOffChockLt"].dt.month > currentMonth) & (df["dateOffChock"].dt.year < currentYear),
+              (df["dateOffChockLt"].dt.month < currentMonth) & (df["dateOffChock"].dt.year > currentYear)
+]
+
+choices3 = [dateBegin,
+            dateEnd,
+            dateBegin,
+            dateEnd
+]
+
+choices2 = ["00:00:00",
+            "00:00:00",
+            "00:00:00",
+            "00:00:00"
+]
+
+df["onChockLt"] = np.select(conditions,choices,default=df["dateOnChockLt"].dt.strftime("%d/%m/%Y"))
+df["onChockTimeLt"] = np.select(conditions,choices2,default=df["onChockTimeLt"].astype(str))
+
+df["offChockLt"] = np.select(conditions2,choices3,default=df["dateOffChockLt"].dt.strftime("%d/%m/%Y"))
+df["offChockTimeLt"] = np.select(conditions2,choices2,default=df["offChockTimeLt"].astype(str))
+
+date_obj = pd.to_datetime(df["onChockLt"], format="%d/%m/%Y")
+time_delta = pd.to_timedelta(df["onChockTimeLt"].astype(str))
+df["onChockLt"] = date_obj + time_delta
+
+date_obj2 = pd.to_datetime(df["offChockLt"], format="%d/%m/%Y")
+time_delta2 = pd.to_timedelta(df["offChockTimeLt"].astype(str))
+df["offChockLt"] = date_obj2 + time_delta2
+
+#df.info()
 
 df.to_csv(save_at,sep=";",index=False)
