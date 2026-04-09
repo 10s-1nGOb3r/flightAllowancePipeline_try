@@ -62,6 +62,13 @@ for field4 in collection2:
     df[f"{field4}ChockLt"] = (df[f"date{field4.capitalize()}ChockLt"] + delta).dt.strftime("%d/%m/%Y %H:%M:%S")
 
 timeNow = datetime.now()
+#If you need a certain time filtering, please activate 
+#the script below, 
+#deactivate scipt "timeNow = datetime.now()" above 
+#and edit timeNow on the first line
+#timeNow = "01/02/2026"
+#timeNow = datetime.strptime(timeNow, "%d/%m/%Y")
+#timeNow = timeNow.date()
 last_month_dt = timeNow - pd.DateOffset(months=1)
 currentMonth = last_month_dt.month
 currentYear = last_month_dt.year
@@ -117,6 +124,46 @@ df["onChockLt"] = date_obj + time_delta
 date_obj2 = pd.to_datetime(df["offChockLt"], format="%d/%m/%Y")
 time_delta2 = pd.to_timedelta(df["offChockTimeLt"].astype(str))
 df["offChockLt"] = date_obj2 + time_delta2
+
+dateEndConvertDateTime = pd.to_datetime(dateEnd,format="%d/%m/%Y")
+dateEndDate = dateEndConvertDateTime.day
+dateEndMonth = dateEndConvertDateTime.month
+dateEndYear = dateEndConvertDateTime.year
+
+offChockDate = df["offChockLt"].dt.day
+offChockMonth = df["offChockLt"].dt.month
+offChockYear = df["offChockLt"].dt.year
+
+offChockDatePlusOne = (df["offChockLt"] + pd.Timedelta(days=1)).dt.normalize() + pd.Timedelta(hours=23, minutes=59)
+
+df["offChockLt"] = np.where((dateEndDate == offChockDate) & (dateEndMonth == offChockMonth) & (dateEndYear == offChockYear),offChockDatePlusOne,df["offChockLt"])
+
+df["ronDay"] = df["offChockLt"] - df["onChockLt"]
+
+offChockDate2 = df["offChockLt"].dt.day
+offChockMonth2 = df["offChockLt"].dt.month
+offChockYear2 = df["offChockLt"].dt.year
+onChockDate = df["onChockLt"].dt.day
+onChockMonth = df["onChockLt"].dt.month
+onChockYear = df["onChockLt"].dt.year
+df["ronDay"] = np.where((offChockDate2 == onChockDate) & (offChockMonth2 == onChockMonth) & (offChockYear2 == onChockYear),df["ronDay"].dt.floor('D'),df["ronDay"])
+
+ronDayDays = df["ronDay"].dt.days
+decimalHoursRonDay = df["ronDay"]/pd.Timedelta(hours=1)
+
+df["nonSplitDutyValidation"] = np.where((ronDayDays == 0) & (decimalHoursRonDay > 13.5),1,0)
+
+conditions3 = [(df["flightNumberOnChock"].str.contains("QG", case=False, na=False) == False) & (df["fligthNumberOffChock"].str.contains("QG", case=False, na=False) == True) & (df["TRANSITION HOUR"] != 0),
+               (df["flightNumberOnChock"].str.contains("QG", case=False, na=False) == True) & (df["fligthNumberOffChock"].str.contains("QG", case=False, na=False) == False) & (df["TRANSITION HOUR"] != 0),
+               (df["flightNumberOnChock"].str.contains("QG", case=False, na=False) == False) & (df["fligthNumberOffChock"].str.contains("QG", case=False, na=False) == False) & (df["TRANSITION HOUR"] != 0)
+]
+
+choices4 = [1,1,1]
+
+df["trainingValidation"] = np.select(conditions3,choices4,default=0)
+
+df["ronDayCount"] = np.where((ronDayDays == 0) & (df["nonSplitDutyValidation"] == 1) & (df["trainingValidation"] != 1), ronDayDays + 1, ronDayDays)
+df["ronDayCount"] = np.where(df["trainingValidation"] == 1,0,df["ronDayCount"])
 
 #df.info()
 
