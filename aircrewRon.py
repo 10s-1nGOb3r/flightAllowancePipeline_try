@@ -8,6 +8,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(script_dir,"input","rawRonData.csv")
 file_path2 = os.path.join(script_dir,"input","stationDb.csv")
 save_at = os.path.join(script_dir,"output","detailAircrewRon.csv")
+save_at2 = os.path.join(script_dir,"output","aircrewRon.csv")
 
 df = pd.read_csv(file_path,sep=";")
 
@@ -34,7 +35,7 @@ for field2 in collection:
 
 df2 = pd.read_csv(file_path2,sep=";")
 
-df2_unique = df2[["activityBase","TRANSITION HOUR"]].drop_duplicates(subset=["activityBase"])
+df2_unique = df2[["activityBase","TRANSITION HOUR","ZONE"]].drop_duplicates(subset=["activityBase"])
 
 df = pd.merge(df, df2_unique,left_on="Port", right_on="activityBase", how="left")
 
@@ -165,6 +166,14 @@ df["trainingValidation"] = np.select(conditions3,choices4,default=0)
 df["ronDayCount"] = np.where((ronDayDays == 0) & (df["nonSplitDutyValidation"] == 1) & (df["trainingValidation"] != 1), ronDayDays + 1, ronDayDays)
 df["ronDayCount"] = np.where(df["trainingValidation"] == 1,0,df["ronDayCount"])
 
+df["monthCalculation"] = currentMonth
+df["yearCalculation"] = currentYear
+
+df3 = df.groupby(["yearCalculation","monthCalculation","ZONE","ID"]).agg(
+    ronSummary = ("ronDayCount","sum")
+).reset_index()
+
 #df.info()
 
 df.to_csv(save_at,sep=";",index=False)
+df3.to_csv(save_at2,sep=";",index=False)
