@@ -149,10 +149,22 @@ onChockMonth = df["onChockLt"].dt.month
 onChockYear = df["onChockLt"].dt.year
 df["ronDay"] = np.where((offChockDate2 == onChockDate) & (offChockMonth2 == onChockMonth) & (offChockYear2 == onChockYear),df["ronDay"].dt.floor('D'),df["ronDay"])
 
-ronDayDays = df["ronDay"].dt.days
-decimalHoursRonDay = df["ronDay"]/pd.Timedelta(hours=1)
+ronDayDays = df["ronDay"]/pd.Timedelta(days=1)
 
-df["nonSplitDutyValidation"] = np.where((ronDayDays == 0) & (decimalHoursRonDay > 13.5),1,0)
+conditions4 = [(ronDayDays > 0.5625) & (ronDayDays < 1),
+               ronDayDays >= 1
+]
+
+choices5 = [np.floor(ronDayDays + 0.5),
+            ronDayDays
+]
+
+ronDayDays = np.select(conditions4,choices5,default=0)
+ronDayDays = ronDayDays.astype(int)
+decimalHoursRonDay = df["ronDay"]/pd.Timedelta(days=1)
+decimalHoursRonDay = np.where(decimalHoursRonDay > 0.5625,np.floor(decimalHoursRonDay + 0.5),0)
+
+df["nonSplitDutyValidation"] = np.where((ronDayDays > 0) & (decimalHoursRonDay > 0.5625),1,0)
 
 conditions3 = [(df["flightNumberOnChock"].str.contains("QG", case=False, na=False) == False) & (df["fligthNumberOffChock"].str.contains("QG", case=False, na=False) == True) & (df["TRANSITION HOUR"] != 0),
                (df["flightNumberOnChock"].str.contains("QG", case=False, na=False) == True) & (df["fligthNumberOffChock"].str.contains("QG", case=False, na=False) == False) & (df["TRANSITION HOUR"] != 0),
@@ -163,7 +175,7 @@ choices4 = [1,1,1]
 
 df["trainingValidation"] = np.select(conditions3,choices4,default=0)
 
-df["ronDayCount"] = np.where((ronDayDays == 0) & (df["nonSplitDutyValidation"] == 1) & (df["trainingValidation"] != 1), ronDayDays + 1, ronDayDays)
+df["ronDayCount"] = np.where((df["nonSplitDutyValidation"] == 1) & (df["trainingValidation"] != 1),ronDayDays,0)
 df["ronDayCount"] = np.where(df["trainingValidation"] == 1,0,df["ronDayCount"])
 
 df["monthCalculation"] = currentMonth
