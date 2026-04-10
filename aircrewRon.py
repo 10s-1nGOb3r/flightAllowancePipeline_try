@@ -141,30 +141,42 @@ df["offChockLt"] = np.where((dateEndDate == offChockDate) & (dateEndMonth == off
 
 df["ronDay"] = df["offChockLt"] - df["onChockLt"]
 
-offChockDate2 = df["offChockLt"].dt.day
-offChockMonth2 = df["offChockLt"].dt.month
-offChockYear2 = df["offChockLt"].dt.year
-onChockDate = df["onChockLt"].dt.day
-onChockMonth = df["onChockLt"].dt.month
-onChockYear = df["onChockLt"].dt.year
-df["ronDay"] = np.where((offChockDate2 == onChockDate) & (offChockMonth2 == onChockMonth) & (offChockYear2 == onChockYear),df["ronDay"].dt.floor('D'),df["ronDay"])
+#offChockDate2 = df["offChockLt"].dt.day
+#offChockMonth2 = df["offChockLt"].dt.month
+#offChockYear2 = df["offChockLt"].dt.year
+#onChockDate = df["onChockLt"].dt.day
+#onChockMonth = df["onChockLt"].dt.month
+#onChockYear = df["onChockLt"].dt.year
+#df["ronDay"] = np.where((offChockDate2 == onChockDate) & (offChockMonth2 == onChockMonth) & (offChockYear2 == onChockYear),df["ronDay"].dt.floor('D'),df["ronDay"])
 
-ronDayDays = df["ronDay"]/pd.Timedelta(days=1)
+onChockNumerical = df["onChockLt"].astype('int64') // (10**9 * 86400)
+offChockNumerical = df["offChockLt"].astype('int64') // (10**9 * 86400)
 
-conditions4 = [(ronDayDays > 0.5625) & (ronDayDays < 1),
-               ronDayDays >= 1
+df["ronDayDays"] = np.where((offChockNumerical - onChockNumerical) > 0,offChockNumerical - onChockNumerical,0)
+
+epoch = pd.to_datetime("1970-01-01")
+dateForOnChockLt = (df["onChockLt"].dt.normalize() - epoch) / pd.Timedelta(days=1)
+dateForOnChockLt = dateForOnChockLt.fillna(0).astype(int)
+dateForDateOnChockLt = (df["dateOnChockLt"].dt.normalize() - epoch) / pd.Timedelta(days=1)
+dateForDateOnChockLt = dateForDateOnChockLt.fillna(0).astype(int)
+decimalTimeOnChockLt = (df["onChockLt"] - df["onChockLt"].dt.normalize()) / pd.Timedelta(hours=1)
+dayFromOnChockLt = df["onChockLt"].dt.day
+dayFromOnChockLt = dayFromOnChockLt.fillna(0).astype(int)
+timePortion = df["ronDay"] - pd.to_timedelta(df["ronDay"].dt.days, unit='D')
+df["ronDayHrMmSs"] = np.where((dateForOnChockLt != dateForDateOnChockLt) & (decimalTimeOnChockLt == 0) & (dayFromOnChockLt == 1),0,timePortion / pd.Timedelta(hours=1))
+df["ronDayHrMmSs"] = df["ronDayHrMmSs"].round(2)
+
+#df["ronDayHrMmSs"] = (timePortion / pd.Timedelta(hours=1)).round(2)
+
+df["ronDayDays2"] = np.where((df["ronDayDays"] == 0) & (df["ronDayHrMmSs"] > 13.5),df["ronDayDays"] + 1,df["ronDayDays"])
+
+conditions5 = [(df["ronDayDays"] > 0),
+               (df["ronDayDays"] == 0) & (df["ronDayHrMmSs"] > 13.5)
 ]
 
-choices5 = [np.floor(ronDayDays + 0.5),
-            ronDayDays
-]
+choices6 = [1,1]
 
-ronDayDays = np.select(conditions4,choices5,default=0)
-ronDayDays = ronDayDays.astype(int)
-decimalHoursRonDay = df["ronDay"]/pd.Timedelta(days=1)
-decimalHoursRonDay = np.where(decimalHoursRonDay > 0.5625,np.floor(decimalHoursRonDay + 0.5),0)
-
-df["nonSplitDutyValidation"] = np.where((ronDayDays > 0) & (decimalHoursRonDay > 0.5625),1,0)
+df["nonSplitDutyValidation"] = np.select(conditions5,choices6,default=0)
 
 conditions3 = [(df["flightNumberOnChock"].str.contains("QG", case=False, na=False) == False) & (df["fligthNumberOffChock"].str.contains("QG", case=False, na=False) == True) & (df["TRANSITION HOUR"] != 0),
                (df["flightNumberOnChock"].str.contains("QG", case=False, na=False) == True) & (df["fligthNumberOffChock"].str.contains("QG", case=False, na=False) == False) & (df["TRANSITION HOUR"] != 0),
@@ -175,8 +187,7 @@ choices4 = [1,1,1]
 
 df["trainingValidation"] = np.select(conditions3,choices4,default=0)
 
-df["ronDayCount"] = np.where((df["nonSplitDutyValidation"] == 1) & (df["trainingValidation"] != 1),ronDayDays,0)
-df["ronDayCount"] = np.where(df["trainingValidation"] == 1,0,df["ronDayCount"])
+df["ronDayCount"] = np.where((df["trainingValidation"] != 1),df["ronDayDays2"],0)
 
 df["monthCalculation"] = currentMonth
 df["yearCalculation"] = currentYear
