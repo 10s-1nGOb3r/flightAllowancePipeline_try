@@ -160,7 +160,13 @@ df["ronDay"] = df["offChockLt"] - df["onChockLt"]
 onChockNumerical = df["onChockLt"].astype('int64') // (10**9 * 86400)
 offChockNumerical = df["offChockLt"].astype('int64') // (10**9 * 86400)
 
-df["ronDayDays"] = np.where(((offChockNumerical - onChockNumerical) > 0) & (df["dateEndPlusOne"] != df["dateOnChockLt"]) & (df["dateEndPlusOne"] != df["dateOffChockLt"]),offChockNumerical - onChockNumerical,0)
+conditions6 = [((offChockNumerical - onChockNumerical) > 0) & (df["dateEndPlusOne"] != df["dateOnChockLt"]) & (df["dateEndPlusOne"] != df["dateOffChockLt"]),
+               ((offChockNumerical - onChockNumerical) > 0) & (df["dateEndPlusOne"] != df["dateOnChockLt"]) & (df["dateEndPlusOne"] == df["dateOffChockLt"])]
+
+choices7 = [offChockNumerical - onChockNumerical,
+            offChockNumerical - onChockNumerical]
+
+df["ronDayDays"] = np.select(conditions6,choices7,0)
 
 epoch = pd.to_datetime("1970-01-01")
 dateForOnChockLt = (df["onChockLt"].dt.normalize() - epoch) / pd.Timedelta(days=1)
@@ -176,7 +182,9 @@ df["ronDayHrMmSs"] = df["ronDayHrMmSs"].round(2)
 
 #df["ronDayHrMmSs"] = (timePortion / pd.Timedelta(hours=1)).round(2)
 
-df["ronDayDays2"] = np.where((df["ronDayDays"] == 0) & (df["ronDayHrMmSs"] > 13.5),df["ronDayDays"] + 1,df["ronDayDays"])
+df["daysFromRonDay"] = df["ronDay"].dt.days
+df["daysFromRonDay"] = df["daysFromRonDay"].fillna(0).astype(int)
+df["ronDayDays2"] = np.where((df["daysFromRonDay"] == 0) & (df["ronDayDays"] == 0) & (df["ronDayHrMmSs"] > 13.5),df["ronDayDays"] + 1,df["ronDayDays"])
 
 conditions5 = [(df["ronDayDays"] > 0),
                (df["ronDayDays"] == 0) & (df["ronDayHrMmSs"] > 13.5)
@@ -204,7 +212,7 @@ df3 = df.groupby(["yearCalculation","monthCalculation","ZONE","ID"]).agg(
     ronSummary = ("ronDayCount","sum")
 ).reset_index()
 
-df.info()
+#df.info()
 
 df.to_csv(save_at,sep=";",index=False)
 df3.to_csv(save_at2,sep=";",index=False)
