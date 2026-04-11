@@ -137,7 +137,7 @@ offChockYear = df["offChockLt"].dt.year
 
 offChockDatePlusOne = (df["offChockLt"] + pd.Timedelta(days=1)).dt.normalize() + pd.Timedelta(hours=23, minutes=59)
 
-df["offChockLt"] = np.where((dateEndDate == offChockDate) & (dateEndMonth == offChockMonth) & (dateEndYear == offChockYear),offChockDatePlusOne,df["offChockLt"])
+df["offChockLt"] = np.where((dateEndDate == offChockDate) & (dateEndMonth == offChockMonth) & (dateEndYear == offChockYear) & (df["offChockDecimal"] < 17),offChockDatePlusOne,df["offChockLt"])
 
 df["ronDay"] = df["offChockLt"] - df["onChockLt"]
 
