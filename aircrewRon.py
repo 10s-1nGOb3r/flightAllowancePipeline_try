@@ -129,15 +129,18 @@ df["offChockLt"] = date_obj2 + time_delta2
 dateEndConvertDateTime = pd.to_datetime(dateEnd,format="%d/%m/%Y")
 dateEndDate = dateEndConvertDateTime.day
 dateEndMonth = dateEndConvertDateTime.month
+df["dateEndMonth"] = dateEndConvertDateTime.month
 dateEndYear = dateEndConvertDateTime.year
 
 offChockDate = df["offChockLt"].dt.day
 offChockMonth = df["offChockLt"].dt.month
 offChockYear = df["offChockLt"].dt.year
+df["dateOffChockMonth"] = df["dateOffChockLt"].dt.month
+df["dateOffChockMonth"] = df["dateOffChockMonth"].fillna(0).astype(int)
 
 offChockDatePlusOne = (df["offChockLt"] + pd.Timedelta(days=1)).dt.normalize() + pd.Timedelta(hours=23, minutes=59)
 
-df["offChockLt"] = np.where((dateEndDate == offChockDate) & (dateEndMonth == offChockMonth) & (dateEndYear == offChockYear) & (df["offChockDecimal"] < 17),offChockDatePlusOne,df["offChockLt"])
+df["offChockLt"] = np.where((dateEndDate == offChockDate) & (dateEndMonth == offChockMonth) & (dateEndYear == offChockYear) & (df["dateEndMonth"] != df["dateOffChockMonth"]),offChockDatePlusOne,df["offChockLt"])
 
 df["ronDay"] = df["offChockLt"] - df["onChockLt"]
 
@@ -196,7 +199,7 @@ df3 = df.groupby(["yearCalculation","monthCalculation","ZONE","ID"]).agg(
     ronSummary = ("ronDayCount","sum")
 ).reset_index()
 
-#df.info()
+df.info()
 
 df.to_csv(save_at,sep=";",index=False)
 df3.to_csv(save_at2,sep=";",index=False)
