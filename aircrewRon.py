@@ -35,12 +35,15 @@ for field2 in collection:
 
 df2 = pd.read_csv(file_path2,sep=";")
 
-df2_unique = df2[["activityBase","TRANSITION HOUR","ZONE"]].drop_duplicates(subset=["activityBase"])
+df2_unique = df2[["activityBase","TRANSITION HOUR","ZONE","MIDNIGHT TIME"]].drop_duplicates(subset=["activityBase"])
 
 df = pd.merge(df, df2_unique,left_on="Port", right_on="activityBase", how="left")
 
 df["TRANSITION HOUR"] = df["TRANSITION HOUR"].fillna("0")
 df["TRANSITION HOUR"] = df["TRANSITION HOUR"].astype(int)
+
+df["MIDNIGHT TIME"] = df["MIDNIGHT TIME"].fillna("0")
+df["MIDNIGHT TIME"] = df["MIDNIGHT TIME"].astype(float)
 
 df["onChockTimeLt"] = np.where((df["onChockDecimal"] + df["TRANSITION HOUR"]) > 24,(df["onChockDecimal"] + df["TRANSITION HOUR"]) - 24,df["onChockDecimal"] + df["TRANSITION HOUR"])
 onChockDelta = pd.to_timedelta(df["onChockTimeLt"].round(2), unit='h')
@@ -81,6 +84,8 @@ df["dateOnChockLt"] = pd.to_datetime(df["dateOnChockLt"])
 df["dateOnChock"] = pd.to_datetime(df["dateOnChock"], format="%d/%m/%Y", errors="coerce")
 df["dateOffChockLt"] = pd.to_datetime(df["dateOffChockLt"])
 df["dateOffChock"] = pd.to_datetime(df["dateOffChock"], format="%d/%m/%Y", errors="coerce")
+df["dateEnd"] = pd.to_datetime(dateEnd, format="%d/%m/%Y", errors="coerce")
+df["dateEndPlusOne"] = df["dateEnd"] + + pd.Timedelta(days=1)
 
 conditions = [(df["dateOnChockLt"].dt.month < currentMonth) & (df["dateOnChock"].dt.year == currentYear),
               (df["dateOnChockLt"].dt.month > currentMonth) & (df["dateOnChock"].dt.year == currentYear),
@@ -155,7 +160,7 @@ df["ronDay"] = df["offChockLt"] - df["onChockLt"]
 onChockNumerical = df["onChockLt"].astype('int64') // (10**9 * 86400)
 offChockNumerical = df["offChockLt"].astype('int64') // (10**9 * 86400)
 
-df["ronDayDays"] = np.where((offChockNumerical - onChockNumerical) > 0,offChockNumerical - onChockNumerical,0)
+df["ronDayDays"] = np.where(((offChockNumerical - onChockNumerical) > 0) & (df["dateEndPlusOne"] != df["dateOnChockLt"]) & (df["dateEndPlusOne"] != df["dateOffChockLt"]),offChockNumerical - onChockNumerical,0)
 
 epoch = pd.to_datetime("1970-01-01")
 dateForOnChockLt = (df["onChockLt"].dt.normalize() - epoch) / pd.Timedelta(days=1)
