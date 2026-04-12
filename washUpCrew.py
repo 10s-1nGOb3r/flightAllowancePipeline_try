@@ -31,7 +31,10 @@ for field2 in collection2:
 
 df["dateArrival"] = np.where(df["ATA"] < df["ATD"],df["DATE"] + pd.Timedelta(days=1),df["DATE"])
 
-df.info()
+df["dateTimeAtd"] = df["DATE"] + df["ATD"]
+df["dateTimeAta"] = df["dateArrival"] + df["ATA"]
+
+#df.info()
 
 df.to_csv(save_at2,sep=";",index=False)
 df4.to_csv(save_at,sep=";",index=False)
