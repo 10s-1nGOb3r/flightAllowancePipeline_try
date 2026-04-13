@@ -8,7 +8,7 @@ file_path = os.path.join(script_dir,"input","smtMealsFdaCockpit.csv")
 file_path2 = os.path.join(script_dir,"input","smtMealsResCabin.csv")
 file_path3 = os.path.join(script_dir,"input","dfsForWashUp.csv")
 file_path4 = os.path.join(script_dir,"input","stationDb.csv")
-save_at = os.path.join(script_dir,"output","dailyRestForWashUp.csv")
+save_at = os.path.join(script_dir,"output","detailDailyRestForWashUp.csv")
 save_at2 = os.path.join(script_dir,"output","detailDfsForWashUp.csv")
 
 df= pd.read_csv(file_path3,sep=";")
@@ -105,7 +105,81 @@ if currentMonth == 12:
 
 df["monthValidation"] = np.where((df["dateTimeAtdLt"].dt.month == currentMonth) & (df["dateTimeAtdLt"].dt.year == currentYear),1,0)
 
-df.info()
+collection4 = ["col1","col2","col3","col4","col5","col6"]
+for field4 in collection4:
+    df4[field4] = df4[field4].ffill()
+
+collection5 = ["Begin","End","FDP"]
+for field5 in collection5:
+    df4[field5] = df4[field5].astype(str)
+    df4[field5] = np.where(df4[field5].str.contains("[a-zA-Z]", regex=True, na=False),"00:00",df4[field5])
+
+df4["Date"] = df4["Date"].astype(str)
+df4["ID"] = np.where(df4["Date"].str.len() == 6,df4["Date"],np.nan)
+df4["ID"] = df4["ID"].ffill()
+
+df4["dateCount"] = pd.to_datetime(df4["Date"], format="%d/%m/%Y", errors="coerce")
+df4["dateCount"] = df4["dateCount"].dt.strftime("%d/%m/%Y")
+df4["dateCount"] = df4["dateCount"].fillna("21/09/1967")
+
+df4["depCat"] = df4["Duty"].str[:3]
+df4 = pd.merge(df4,df5[['activityBase','ZONE','SIGN ON','SIGN ON INTER','TRANSITION HOUR']],left_on='depCat',right_on='activityBase',how='left')
+df4 = df4.rename(columns={'ZONE': 'zoneDep','SIGN ON': 'signOnDep','SIGN ON INTER': 'signOnInterDep','TRANSITION HOUR': 'transitionDep'}).drop(columns=['activityBase'])
+df4["transitionDep"] = df4["transitionDep"].astype(float)
+
+df4["arrCat"] = df4["Duty"].str.split().str[1].str.lstrip("-").str.split("-").str[0]
+df4 = pd.merge(df4,df5[['activityBase','ZONE','TRANSITION HOUR']],left_on='arrCat',right_on='activityBase',how='left')
+df4 = df4.rename(columns={'ZONE': 'zoneArr','TRANSITION HOUR': 'transitionArr'}).drop(columns=['activityBase'])
+df4["transitionArr"] = df4["transitionArr"].astype(float)
+
+collection6 = ["zoneDep","arrCat","zoneArr"]
+for field6 in collection6:
+    df4[field6] = df4[field6].fillna("0")
+
+collection7 = ["signOnDep","signOnInterDep"]
+for field7 in collection7:
+    df4[field7] = df4[field7].astype(float)
+    df4[field7] = df4[field7].fillna(0.00) 
+
+conditions3 = [(df4["zoneDep"] == "DOM") & (df4["zoneArr"] == "DOM"),
+               (df4["zoneDep"] == "DOM") & (df4["zoneArr"] == "INT"),
+               (df4["zoneDep"] == "INT") & (df4["zoneArr"] == "DOM"),
+               (df4["zoneDep"] == "INT") & (df4["zoneArr"] == "INT")]
+
+choices3 = ["DOM","INT","INT","INT"]
+
+df4["firstFlightType"] = np.select(conditions3,choices3,default="0")
+
+conditions4 = [(df4["firstFlightType"] == "DOM"),
+               (df4["firstFlightType"] == "INT")]
+
+choices4 = [df4["signOnDep"],
+            df4["signOnInterDep"]]
+
+df4["signOnDep2"] = np.select(conditions4,choices4,default=0.00)
+
+combinedDateSignOnDep = df4["dateCount"] + " " + df4["Begin"]
+df4["dateTimeSignOn"] = pd.to_datetime(combinedDateSignOnDep)
+
+df4["signOnDelta"] = pd.to_timedelta(df4["signOnDep2"], unit='h')
+df4["transitionDep"] = pd.to_timedelta(df4["transitionDep"], unit='h')
+df4["atdOnLocalTime"] = df4["dateTimeSignOn"] + df4["transitionDep"] + df4["signOnDelta"] 
+
+df4["signOffDelta"] = pd.to_timedelta(0.5, unit='h')
+
+collection8 = ["Begin","End"]
+for field8 in collection8:
+    df4[field8] = pd.to_timedelta(df4[field8] + ":00")
+
+df4["signOffDate"] = np.where(df4["Begin"] > df4["End"],df4["dateTimeSignOn"] + pd.Timedelta(days=1),df4["dateTimeSignOn"])
+df4["signOffDate"] = df4["signOffDate"].dt.date
+df4["signOffDate"] = pd.to_datetime(df4["signOffDate"], dayfirst=True)
+df4["transitionArr"] = pd.to_timedelta(df4["transitionArr"], unit='h')
+df4["ataOnLocalTime"] = df4["signOffDate"] + df4["End"]
+df4["ataOnLocalTime"] = df4["ataOnLocalTime"] - pd.Timedelta(minutes=30)
+df4["ataOnLocalTime"] = df4["ataOnLocalTime"] + df4["transitionArr"]
+
+df4.info()
 
 df.to_csv(save_at2,sep=";",index=False)
 df4.to_csv(save_at,sep=";",index=False)
