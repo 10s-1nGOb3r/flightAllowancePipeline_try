@@ -217,6 +217,10 @@ df["headCrewRouteKey"] = np.where(df["monthValidation"] == 1,df["Crew"] + "." + 
 df = pd.merge(df,df4[['headCrewRouteKey','headCrewRouteValidation']].drop_duplicates(subset=['headCrewRouteKey']),left_on='headCrewRouteKey',right_on='headCrewRouteKey',how='left')
 df["headCrewRouteValidation"] = df["headCrewRouteValidation"].fillna("0")
 
+df["tailCrewRouteKey"] = np.where(df["monthValidation"] == 1,df["Crew"] + "." + df['dateFromDateTimeAtaLt'] + "." + df["FLT"] + "." + df["DEP"],"0")
+df = pd.merge(df,df4[['tailCrewRouteKey','tailCrewRouteValidation']].drop_duplicates(subset=['tailCrewRouteKey']),left_on='tailCrewRouteKey',right_on='tailCrewRouteKey',how='left')
+df["tailCrewRouteValidation"] = df["tailCrewRouteValidation"].fillna("0")
+
 #df.info()
 #df4.info()
 
