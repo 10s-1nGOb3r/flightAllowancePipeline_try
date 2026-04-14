@@ -204,13 +204,21 @@ df4["flightNumberArrForKey"] = df4["flightNumberArrForKey"].fillna("0")
 parts = df4["Duty"].str.split('-')
 df4["arrForKey"] = np.where(df4["flightNumberArrForKey"] != "0",parts.str[-3].str.strip(),"0")
 
-df4["headCrewRouteKey"] = np.where((df4["monthValidation"] == "1") & (df4["depForKey"] != "0"),df4["dateFromAtdOnLocalTime"] + df4["flightNumberDepForKey"] + df4["depForKey"],"0")
+df4["headCrewRouteKey"] = np.where((df4["monthValidation"] == "1") & (df4["depForKey"] != "0"),df4["ID"] + "." + df4["dateFromAtdOnLocalTime"] + "." + df4["flightNumberDepForKey"] + "." + df4["depForKey"],"0")
 df4["headCrewRouteValidation"] = np.where(df4["headCrewRouteKey"] != "0","1","0")
 
-df4["tailCrewRouteKey"] = np.where((df4["monthValidation"] == "1") & (df4["arrForKey"] != "0"),df4["dateFromAtaOnLocalTime"] + df4["flightNumberArrForKey"] + df4["arrForKey"],"0")
+df4["tailCrewRouteKey"] = np.where((df4["monthValidation"] == "1") & (df4["arrForKey"] != "0"),df4["ID"] + "." + df4["dateFromAtaOnLocalTime"] + "." + df4["flightNumberArrForKey"] + "." + df4["arrForKey"],"0")
 df4["tailCrewRouteValidation"] = np.where(df4["tailCrewRouteKey"] != "0","1","0")
 
-df4.info()
+df['dateFromDateTimeAtdLt'] = df['dateTimeAtdLt'].dt.strftime('%d/%m/%Y')
+df['dateFromDateTimeAtaLt'] = df['dateTimeAtaLt'].dt.strftime('%d/%m/%Y')
+
+df["headCrewRouteKey"] = np.where(df["monthValidation"] == 1,df["Crew"] + "." + df['dateFromDateTimeAtdLt'] + "." + df["FLT"] + "." + df["DEP"],"0")
+df = pd.merge(df,df4[['headCrewRouteKey','headCrewRouteValidation']].drop_duplicates(subset=['headCrewRouteKey']),left_on='headCrewRouteKey',right_on='headCrewRouteKey',how='left')
+df["headCrewRouteValidation"] = df["headCrewRouteValidation"].fillna("0")
+
+#df.info()
+#df4.info()
 
 df.to_csv(save_at2,sep=";",index=False)
 df4.to_csv(save_at,sep=";",index=False)
