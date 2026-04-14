@@ -127,7 +127,7 @@ df4 = pd.merge(df4,df5[['activityBase','ZONE','SIGN ON','SIGN ON INTER','TRANSIT
 df4 = df4.rename(columns={'ZONE': 'zoneDep','SIGN ON': 'signOnDep','SIGN ON INTER': 'signOnInterDep','TRANSITION HOUR': 'transitionDep'}).drop(columns=['activityBase'])
 df4["transitionDep"] = df4["transitionDep"].astype(float)
 
-df4["arrCat"] = df4["Duty"].str.split().str[1].str.lstrip("-").str.split("-").str[0]
+df4["arrCat"] = df4["Duty"].str.split('-').str[-1].str.strip()
 df4 = pd.merge(df4,df5[['activityBase','ZONE','TRANSITION HOUR']],left_on='arrCat',right_on='activityBase',how='left')
 df4 = df4.rename(columns={'ZONE': 'zoneArr','TRANSITION HOUR': 'transitionArr'}).drop(columns=['activityBase'])
 df4["transitionArr"] = df4["transitionArr"].astype(float)
@@ -194,6 +194,18 @@ df4["flightNumberDepForKey"] = df4["Duty"].str.split('-').str[1]
 df4["flightNumberDepForKey"] = df4["flightNumberDepForKey"].str.replace("*", "", regex=False).str.strip()
 df4["flightNumberDepForKey"] = df4["flightNumberDepForKey"].fillna("0")
 df4["depForKey"] = np.where(df4["flightNumberDepForKey"] != "0",df4["Duty"].str[:3],"0")
+
+df4["flightNumberArrForKey"] = df4["Duty"].str.split('-').str[-2]
+df4["flightNumberArrForKey"] = df4["flightNumberArrForKey"].str.replace("*", "", regex=False).str.strip()
+df4["flightNumberArrForKey"] = df4["flightNumberArrForKey"].fillna("0")
+parts = df4["Duty"].str.split('-')
+df4["arrForKey"] = np.where(df4["flightNumberArrForKey"] != "0",parts.str[-3].str.strip(),"0")
+
+df4["headCrewRouteKey"] = np.where(df4["depForKey"] != "0",df4["dateFromAtdOnLocalTime"] + df4["flightNumberDepForKey"] + df4["depForKey"],"0")
+df4["headCrewRouteValidation"] = np.where(df4["headCrewRouteKey"] != "0","1","0")
+
+df4["tailCrewRouteKey"] = np.where(df4["arrForKey"] != "0",df4["dateFromAtaOnLocalTime"] + df4["flightNumberArrForKey"] + df4["arrForKey"],"0")
+df4["tailCrewRouteValidation"] = np.where(df4["tailCrewRouteKey"] != "0","1","0")
 
 df4.info()
 
