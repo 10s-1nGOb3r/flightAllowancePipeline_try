@@ -159,7 +159,7 @@ choices4 = [df4["signOnDep"],
 df4["signOnDep2"] = np.select(conditions4,choices4,default=0.00)
 
 combinedDateSignOnDep = df4["dateCount"] + " " + df4["Begin"]
-df4["dateTimeSignOn"] = pd.to_datetime(combinedDateSignOnDep)
+df4["dateTimeSignOn"] = pd.to_datetime(combinedDateSignOnDep,dayfirst=True)
 
 df4["signOnDelta"] = pd.to_timedelta(df4["signOnDep2"], unit='h')
 df4["transitionDep"] = pd.to_timedelta(df4["transitionDep"], unit='h')
@@ -178,6 +178,22 @@ df4["transitionArr"] = pd.to_timedelta(df4["transitionArr"], unit='h')
 df4["ataOnLocalTime"] = df4["signOffDate"] + df4["End"]
 df4["ataOnLocalTime"] = df4["ataOnLocalTime"] - pd.Timedelta(minutes=30)
 df4["ataOnLocalTime"] = df4["ataOnLocalTime"] + df4["transitionArr"]
+
+collection9 = ["atdOnLocalTime","ataOnLocalTime"]
+for field9 in collection9:
+    df4[field9] = df4[field9].fillna(pd.Timestamp("1900-01-01"))
+
+collection10 = ["transitionDep","transitionArr"]
+for field10 in collection10:
+    df4[field10] = df4[field10].fillna(pd.Timedelta(seconds=0))
+
+df4["dateFromAtdOnLocalTime"] = df4["atdOnLocalTime"].dt.strftime('%d/%m/%Y')
+df4["dateFromAtaOnLocalTime"] = df4["ataOnLocalTime"].dt.strftime('%d/%m/%Y')
+
+df4["flightNumberDepForKey"] = df4["Duty"].str.split('-').str[1]
+df4["flightNumberDepForKey"] = df4["flightNumberDepForKey"].str.replace("*", "", regex=False).str.strip()
+df4["flightNumberDepForKey"] = df4["flightNumberDepForKey"].fillna("0")
+df4["depForKey"] = np.where(df4["flightNumberDepForKey"] != "0",df4["Duty"].str[:3],"0")
 
 df4.info()
 
