@@ -164,6 +164,9 @@ df4["dateTimeSignOn"] = pd.to_datetime(combinedDateSignOnDep,dayfirst=True)
 df4["signOnDelta"] = pd.to_timedelta(df4["signOnDep2"], unit='h')
 df4["transitionDep"] = pd.to_timedelta(df4["transitionDep"], unit='h')
 df4["atdOnLocalTime"] = df4["dateTimeSignOn"] + df4["transitionDep"] + df4["signOnDelta"] 
+atdMonthValue = df4["atdOnLocalTime"].dt.month
+atdYearValue = df4["atdOnLocalTime"].dt.year
+df4["monthValidation"] = np.where((currentMonth == atdMonthValue) & (currentYear == atdYearValue),"1","0")
 
 df4["signOffDelta"] = pd.to_timedelta(0.5, unit='h')
 
@@ -201,10 +204,10 @@ df4["flightNumberArrForKey"] = df4["flightNumberArrForKey"].fillna("0")
 parts = df4["Duty"].str.split('-')
 df4["arrForKey"] = np.where(df4["flightNumberArrForKey"] != "0",parts.str[-3].str.strip(),"0")
 
-df4["headCrewRouteKey"] = np.where(df4["depForKey"] != "0",df4["dateFromAtdOnLocalTime"] + df4["flightNumberDepForKey"] + df4["depForKey"],"0")
+df4["headCrewRouteKey"] = np.where((df4["monthValidation"] == "1") & (df4["depForKey"] != "0"),df4["dateFromAtdOnLocalTime"] + df4["flightNumberDepForKey"] + df4["depForKey"],"0")
 df4["headCrewRouteValidation"] = np.where(df4["headCrewRouteKey"] != "0","1","0")
 
-df4["tailCrewRouteKey"] = np.where(df4["arrForKey"] != "0",df4["dateFromAtaOnLocalTime"] + df4["flightNumberArrForKey"] + df4["arrForKey"],"0")
+df4["tailCrewRouteKey"] = np.where((df4["monthValidation"] == "1") & (df4["arrForKey"] != "0"),df4["dateFromAtaOnLocalTime"] + df4["flightNumberArrForKey"] + df4["arrForKey"],"0")
 df4["tailCrewRouteValidation"] = np.where(df4["tailCrewRouteKey"] != "0","1","0")
 
 df4.info()
