@@ -193,10 +193,38 @@ for field10 in collection10:
 df4["dateFromAtdOnLocalTime"] = df4["atdOnLocalTime"].dt.strftime('%d/%m/%Y')
 df4["dateFromAtaOnLocalTime"] = df4["ataOnLocalTime"].dt.strftime('%d/%m/%Y')
 
-df4["flightNumberDepForKey"] = df4["Duty"].str.split('-').str[1]
+conditions7 = [(df4["Duty"].str.contains('RCGK', case=False, na=False) == True) |
+               (df4["Duty"].str.contains('RHLP', case=False, na=False) == True) |
+               (df4["Duty"].str.contains('RSUB', case=False, na=False) == True),
+               (df4["Duty"].str.contains('RCGK', case=False, na=False) != True) |
+               (df4["Duty"].str.contains('RHLP', case=False, na=False) != True) |
+               (df4["Duty"].str.contains('RSUB', case=False, na=False) != True)
+]
+
+choices7 = [1,0]
+
+df4["crewReserveValidation"] = np.select(conditions7,choices7,default=0)
+
+conditions5 = [df4["crewReserveValidation"] == 1,
+               df4["crewReserveValidation"] != 1
+]
+
+choices5 = [df4['Duty'].str.split('-').str[3].str.replace(' ', ''),
+            df4["Duty"].str.split('-').str[1]]
+
+df4["flightNumberDepForKey"] = np.select(conditions5,choices5,default="0")
 df4["flightNumberDepForKey"] = df4["flightNumberDepForKey"].str.replace("*", "", regex=False).str.strip()
 df4["flightNumberDepForKey"] = df4["flightNumberDepForKey"].fillna("0")
-df4["depForKey"] = np.where(df4["flightNumberDepForKey"] != "0",df4["Duty"].str[:3],"0")
+
+conditions6 =[(df4["flightNumberDepForKey"] != "0") & (df4["crewReserveValidation"] == 1),
+              (df4["flightNumberDepForKey"] != "0") & (df4["crewReserveValidation"] != 1)
+]
+
+choices6 = [df4['Duty'].str.split('-').str[2],
+            df4["Duty"].str[:3]
+]
+
+df4["depForKey"] = np.select(conditions6,choices6,default="0")
 
 df4["flightNumberArrForKey"] = df4["Duty"].str.split('-').str[-2]
 df4["flightNumberArrForKey"] = df4["flightNumberArrForKey"].str.replace("*", "", regex=False).str.strip()
@@ -221,8 +249,8 @@ df["tailCrewRouteKey"] = np.where(df["monthValidation"] == 1,df["Crew"] + "." + 
 df = pd.merge(df,df4[['tailCrewRouteKey','tailCrewRouteValidation']].drop_duplicates(subset=['tailCrewRouteKey']),left_on='tailCrewRouteKey',right_on='tailCrewRouteKey',how='left')
 df["tailCrewRouteValidation"] = df["tailCrewRouteValidation"].fillna("0")
 
-#df.info()
-#df4.info()
+df.info()
+df4.info()
 
 df.to_csv(save_at2,sep=";",index=False)
 df4.to_csv(save_at,sep=";",index=False)
