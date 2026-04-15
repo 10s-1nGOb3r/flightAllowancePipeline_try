@@ -10,6 +10,7 @@ file_path3 = os.path.join(script_dir,"input","dfsForWashUp.csv")
 file_path4 = os.path.join(script_dir,"input","stationDb.csv")
 save_at = os.path.join(script_dir,"output","detailDailyRestForWashUp.csv")
 save_at2 = os.path.join(script_dir,"output","detailDfsForWashUp.csv")
+save_at3 = os.path.join(script_dir,"output","crewRouteValidation.csv")
 
 df= pd.read_csv(file_path3,sep=";")
 df2 = pd.read_csv(file_path,sep=";")
@@ -249,8 +250,46 @@ df["tailCrewRouteKey"] = np.where(df["monthValidation"] == 1,df["Crew"] + "." + 
 df = pd.merge(df,df4[['tailCrewRouteKey','tailCrewRouteValidation']].drop_duplicates(subset=['tailCrewRouteKey']),left_on='tailCrewRouteKey',right_on='tailCrewRouteKey',how='left')
 df["tailCrewRouteValidation"] = df["tailCrewRouteValidation"].fillna("0")
 
-df.info()
-df4.info()
+conditions8 = [(df["monthValidation"] == 1) & (df["headCrewRouteValidation"] == "1") & (df["tailCrewRouteValidation"] == "0"),
+               (df["monthValidation"] == 1) & (df["headCrewRouteValidation"] == "0") & (df["tailCrewRouteValidation"] == "0"),
+               (df["monthValidation"] == 1) & (df["headCrewRouteValidation"] == "0") & (df["tailCrewRouteValidation"] == "1"),
+               (df["monthValidation"] == 1) & (df["headCrewRouteValidation"] == "1") & (df["tailCrewRouteValidation"] == "1")
+]
+
+choices8 = ["head","body","tail","headTail"]
+
+df["journeyPart"] = np.select(conditions8,choices8,default="0")
+
+isNewRoute = df["journeyPart"].isin(["head","headTail"])
+
+df["routeNumber"] = isNewRoute.cumsum()
+df["routeNumber"] = np.where(df["routeNumber"] == "0","0",df["routeNumber"])
+
+df6 = df.groupby("routeNumber").agg(
+    head = ("journeyPart",lambda x: (x == "head").sum()),
+    body = ("journeyPart",lambda x: (x == "body").sum()),
+    tail = ("journeyPart",lambda x: (x == "tail").sum()),
+    headTail = ("journeyPart",lambda x: (x == "headTail").sum())
+).reset_index()
+
+conditions9 = [(df6["head"] > 0) & (df6["body"] > 0) & (df6["tail"] > 0) & (df6["headTail"] == 0),
+               (df6["head"] == 0) & (df6["body"] == 0) & (df6["tail"] == 0) & (df6["headTail"] > 0),
+               (df6["head"] > 0) & (df6["body"] == 0) & (df6["tail"] > 0) & (df6["headTail"] == 0),
+               (df6["head"] > 0) & (df6["body"] == 0) & (df6["tail"] == 0) & (df6["headTail"] > 0)
+]
+
+choices9 = [1,1,1,1]
+
+df6["crewRouteValidation"] = np.select(conditions9,choices9,default=0)
+df6["routeNumber"] = df6["routeNumber"].astype(int)
+df6 = df6.sort_values(by="routeNumber", ascending=True)
+
+df6["crewRouteRate"] = ((df6["crewRouteValidation"].sum())/(df6["routeNumber"].max()))  * 100
+df6["crewRouteRate"] = df6["crewRouteRate"].round(2)
+
+#df.info()
+#df4.info()
 
 df.to_csv(save_at2,sep=";",index=False)
 df4.to_csv(save_at,sep=";",index=False)
+df6.to_csv(save_at3,sep=";",index=False)
