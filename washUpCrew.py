@@ -288,16 +288,18 @@ choices8 = ["head","body","tail","headTail"]
 
 df["journeyPart"] = np.select(conditions8,choices8,default="0")
 
-isNewRoute = df["journeyPart"].isin(["head","headTail"])
+df["journeyPart2"] = np.where((df["journeyPart"] == "head") & (df["journeyPart"].shift(-1) == "0"),"headTail",df["journeyPart"])
+
+isNewRoute = df["journeyPart2"].isin(["head","headTail"])
 
 df["routeNumber"] = isNewRoute.cumsum()
 df["routeNumber"] = np.where(df["routeNumber"] == "0","0",df["routeNumber"])
 
 df6 = df.groupby("routeNumber").agg(
-    head = ("journeyPart",lambda x: (x == "head").sum()),
-    body = ("journeyPart",lambda x: (x == "body").sum()),
-    tail = ("journeyPart",lambda x: (x == "tail").sum()),
-    headTail = ("journeyPart",lambda x: (x == "headTail").sum())
+    head = ("journeyPart2",lambda x: (x == "head").sum()),
+    body = ("journeyPart2",lambda x: (x == "body").sum()),
+    tail = ("journeyPart2",lambda x: (x == "tail").sum()),
+    headTail = ("journeyPart2",lambda x: (x == "headTail").sum())
 ).reset_index()
 
 conditions9 = [(df6["head"] > 0) & (df6["body"] > 0) & (df6["tail"] > 0) & (df6["headTail"] == 0),
@@ -315,8 +317,8 @@ df6 = df6.sort_values(by="routeNumber", ascending=True)
 df6["crewRouteRate"] = ((df6["crewRouteValidation"].sum())/(df6["routeNumber"].max()))  * 100
 df6["crewRouteRate"] = df6["crewRouteRate"].round(2)
 
-df.info()
-df4.info()
+#df.info()
+#df4.info()
 
 df.to_csv(save_at2,sep=";",index=False)
 df4.to_csv(save_at,sep=";",index=False)
