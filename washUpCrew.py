@@ -25,15 +25,25 @@ for field in collection:
     df[field] = df[field].ffill()
     df[field] = df[field].astype(str)
 
-collection2 = ["ATD","ATA"]
+collection2 = ["STD","ATD","ATA"]
 for field2 in collection2:
     df[field2] = pd.to_timedelta(df[field2] + ":00")
     df[field2] = df[field2].ffill()
 
-df["dateArrival"] = np.where(df["ATA"] < df["ATD"],df["DATE"] + pd.Timedelta(days=1),df["DATE"])
+collection11 = ["ActBlockOffDate","ActBlockOnDate"]
+for field11 in collection11:
+    df[field11] = pd.to_datetime(df[field11], format="%d/%m/%Y", errors="coerce")
+    df[field11] = df[field11].ffill()
 
-df["dateTimeAtd"] = df["DATE"] + df["ATD"]
-df["dateTimeAta"] = df["dateArrival"] + df["ATA"]
+#df["STD"] = np.where((df["STD"] == pd.Timedelta(hours=0)) & (df["STD"] == pd.Timedelta(minutes=0)),df["STD"] + pd.Timedelta(hours=24),df["STD"])
+
+#df["dateDeparture"] = np.where((df["STD"] - df["ATD"]) > pd.Timedelta(hours=12),df["DATE"] - pd.Timedelta(days=1),df["DATE"])
+#df["dateArrival"] = np.where(df["ATA"] < df["ATD"],df["dateDeparture"] + pd.Timedelta(days=1),df["dateDeparture"])
+
+#The problem is on row 284
+
+df["dateTimeAtd"] = df["ActBlockOffDate"] + df["ATD"]
+df["dateTimeAta"] = df["ActBlockOnDate"] + df["ATA"]
 
 df5 = pd.read_csv(file_path4,sep=";")
 
@@ -68,13 +78,21 @@ choices = ["CPT","FO","FA1","FA"]
 df["RANK"] = np.select(conditions,choices,default="0")
 
 conditions2 = [
+        (df["Crew"].str.contains("CPT", na=False)) & (df["Crew"].str.contains("DHC", na=False)),
+        (df["Crew"].str.contains("FO", na=False)) & (df["Crew"].str.contains("DHC", na=False)),
+        (df["Crew"].str.contains("FA1", na=False)) & (df["Crew"].str.contains("DHC", na=False)),
+        (df["Crew"].str.contains("FA", na=False)) & (df["Crew"].str.contains("DHC", na=False)),
         df["Crew"].str.contains("CPT", na=False),
         df["Crew"].str.contains("FA1", na=False),
         df["Crew"].str.contains("FO", na=False),
-        df["Crew"].str.contains("FA", na=False)
+        df["Crew"].str.contains("FA", na=False)        
 ]
 
 choices2 = [
+        df["Crew"].str.replace(r'[^0-9]', '', regex=True).str[-6:],
+        df["Crew"].str.replace(r'[^0-9]', '', regex=True).str[-6:],
+        df["Crew"].str.replace(r'[^0-9]', '', regex=True).str[-6:],
+        df["Crew"].str.replace(r'[^0-9]', '', regex=True).str[-6:],
         df["Crew"].str[7:14],
         df["Crew"].str[7:14],
         df["Crew"].str[6:13],
@@ -159,8 +177,21 @@ choices4 = [df4["signOnDep"],
 
 df4["signOnDep2"] = np.select(conditions4,choices4,default=0.00)
 
-combinedDateSignOnDep = df4["dateCount"] + " " + df4["Begin"]
-df4["dateTimeSignOn"] = pd.to_datetime(combinedDateSignOnDep,dayfirst=True)
+collection8 = ["Begin","End"]
+for field8 in collection8:
+    df4[field8] = pd.to_timedelta(df4[field8] + ":00")
+
+#combinedDateSignOnDep = df4["dateCount"] + " " + df4["Begin"]
+df4["dateTimeSignOn"] = pd.to_datetime(df4["dateCount"], dayfirst=True) + df4["Begin"]
+beginDec = df4["Begin"] / pd.Timedelta(hours=1)
+bufferEtdDom = 24.00 - df4["signOnDep"]
+bufferEtdInt = 24.00 - df4["signOnInterDep"]
+conditions10 = [(df4["zoneArr"] == "DOM") & (beginDec >= bufferEtdDom),
+                (df4["zoneArr"] == "INT") & (beginDec >= bufferEtdInt)]
+
+choices10 = [df4["dateTimeSignOn"] - pd.Timedelta(days=1),
+             df4["dateTimeSignOn"] - pd.Timedelta(days=1)]
+df4["dateTimeSignOn"] = np.select(conditions10,choices10,default=df4["dateTimeSignOn"])
 
 df4["signOnDelta"] = pd.to_timedelta(df4["signOnDep2"], unit='h')
 df4["transitionDep"] = pd.to_timedelta(df4["transitionDep"], unit='h')
@@ -171,9 +202,6 @@ df4["monthValidation"] = np.where((currentMonth == atdMonthValue) & (currentYear
 
 df4["signOffDelta"] = pd.to_timedelta(0.5, unit='h')
 
-collection8 = ["Begin","End"]
-for field8 in collection8:
-    df4[field8] = pd.to_timedelta(df4[field8] + ":00")
 
 df4["signOffDate"] = np.where(df4["Begin"] > df4["End"],df4["dateTimeSignOn"] + pd.Timedelta(days=1),df4["dateTimeSignOn"])
 df4["signOffDate"] = df4["signOffDate"].dt.date
@@ -253,7 +281,7 @@ df["tailCrewRouteValidation"] = df["tailCrewRouteValidation"].fillna("0")
 conditions8 = [(df["monthValidation"] == 1) & (df["headCrewRouteValidation"] == "1") & (df["tailCrewRouteValidation"] == "0"),
                (df["monthValidation"] == 1) & (df["headCrewRouteValidation"] == "0") & (df["tailCrewRouteValidation"] == "0"),
                (df["monthValidation"] == 1) & (df["headCrewRouteValidation"] == "0") & (df["tailCrewRouteValidation"] == "1"),
-               (df["monthValidation"] == 1) & (df["headCrewRouteValidation"] == "1") & (df["tailCrewRouteValidation"] == "1")
+               (df["monthValidation"] == 1) & (df["headCrewRouteValidation"] == "1") & (df["tailCrewRouteValidation"] == "1"),
 ]
 
 choices8 = ["head","body","tail","headTail"]
@@ -287,8 +315,8 @@ df6 = df6.sort_values(by="routeNumber", ascending=True)
 df6["crewRouteRate"] = ((df6["crewRouteValidation"].sum())/(df6["routeNumber"].max()))  * 100
 df6["crewRouteRate"] = df6["crewRouteRate"].round(2)
 
-#df.info()
-#df4.info()
+df.info()
+df4.info()
 
 df.to_csv(save_at2,sep=";",index=False)
 df4.to_csv(save_at,sep=";",index=False)
