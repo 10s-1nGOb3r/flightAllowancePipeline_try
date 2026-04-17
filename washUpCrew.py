@@ -11,6 +11,7 @@ file_path4 = os.path.join(script_dir,"input","stationDb.csv")
 save_at = os.path.join(script_dir,"output","detailDailyRestForWashUp.csv")
 save_at2 = os.path.join(script_dir,"output","detailDfsForWashUp.csv")
 save_at3 = os.path.join(script_dir,"output","crewRouteValidation.csv")
+save_at4 = os.path.join(script_dir,"output","crewWashUpCalculation.csv")
 
 df= pd.read_csv(file_path3,sep=";")
 df2 = pd.read_csv(file_path,sep=";")
@@ -295,6 +296,30 @@ isNewRoute = df["journeyPart2"].isin(["head","headTail"])
 df["routeNumber"] = isNewRoute.cumsum()
 df["routeNumber"] = np.where(df["routeNumber"] == "0","0",df["routeNumber"])
 
+conditions11 = [(df["monthValidation"] == 1) & (df["journeyPart2"] == "body"),
+                (df["monthValidation"] == 1) & (df["journeyPart2"] == "tail")]
+
+choices11 = [df["dateTimeAtdLt"] - df["dateTimeAtaLt"].shift(1),
+             df["dateTimeAtdLt"] - df["dateTimeAtaLt"].shift(1)]
+
+df["transitTime"] = np.select(conditions11,choices11,default=0)
+
+df["transitTimeDecimal"] = df["transitTime"] / pd.Timedelta(hours=1)
+df["transitTimeDecimal"] = df["transitTimeDecimal"].round(2)
+
+conditions12 = [(df["monthValidation"] == 1) & (df["journeyPart2"] == "body") & (df["transitTimeDecimal"] >= 2) & (df["transitTimeDecimal"] <= 4),
+                (df["monthValidation"] == 1) & (df["journeyPart2"] == "body") & (df["transitTimeDecimal"] >= 4) & (df["transitTimeDecimal"] <= 8.5),
+                (df["monthValidation"] == 1) & (df["journeyPart2"] == "tail") & (df["transitTimeDecimal"] >= 2) & (df["transitTimeDecimal"] <= 4),
+                (df["monthValidation"] == 1) & (df["journeyPart2"] == "tail") & (df["transitTimeDecimal"] >= 4) & (df["transitTimeDecimal"] <= 8.5)
+]
+
+choices12 = [1,2,1,2]
+
+df["washUpCount"] = np.select(conditions12,choices12,default=0)
+
+df["yearCalculation2"] = np.where(df["monthValidation"] == 1,df["yearCalculation"],0)
+df["monthCalculation2"] = np.where(df["monthValidation"] == 1,df["monthCalculation"],0)
+
 df6 = df.groupby("routeNumber").agg(
     head = ("journeyPart2",lambda x: (x == "head").sum()),
     body = ("journeyPart2",lambda x: (x == "body").sum()),
@@ -317,9 +342,15 @@ df6 = df6.sort_values(by="routeNumber", ascending=True)
 df6["crewRouteRate"] = ((df6["crewRouteValidation"].sum())/(df6["routeNumber"].max()))  * 100
 df6["crewRouteRate"] = df6["crewRouteRate"].round(2)
 
+df7 = df.groupby(["yearCalculation2","monthCalculation2","Crew"]).agg(
+    washUpCount = ("washUpCount","sum")
+).reset_index()
+df7 = df7[df7["yearCalculation2"] != 0]
+
 #df.info()
 #df4.info()
 
 df.to_csv(save_at2,sep=";",index=False)
 df4.to_csv(save_at,sep=";",index=False)
 df6.to_csv(save_at3,sep=";",index=False)
+df7.to_csv(save_at4,sep=";",index=False)
