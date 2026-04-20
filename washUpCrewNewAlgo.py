@@ -6,8 +6,9 @@ from datetime import datetime
 script_dir = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(script_dir,"input","dfsForWashUp.csv")
 file_path2 = os.path.join(script_dir,"input","stationDb.csv")
-save_at = os.path.join(script_dir,"output","detailNewAlgoDfsForWashUp.csv")
-save_at2 = os.path.join(script_dir,"output","newAlgoCrewRouteValidation.csv")
+save_at = os.path.join(script_dir,"output","detailDfsForWashUpNewAlgo.csv")
+save_at2 = os.path.join(script_dir,"output","CrewRouteValidationNewAlgo.csv")
+save_at3 = os.path.join(script_dir,"output","CrewWashUpCalculationNewAlgo.csv")
 
 df= pd.read_csv(file_path,sep=";")
 
@@ -24,31 +25,44 @@ for field2 in collection2:
     df[field2] = pd.to_timedelta(df[field2] + ":00")
     df[field2] = df[field2].ffill()
 
-collection11 = ["ActBlockOffDate","ActBlockOnDate"]
-for field11 in collection11:
+collection3 = ["ActBlockOffDate","ActBlockOnDate"]
+for field11 in collection3:
     df[field11] = pd.to_datetime(df[field11], format="%d/%m/%Y", errors="coerce")
     df[field11] = df[field11].ffill()
 
 df["dateTimeAtd"] = df["ActBlockOffDate"] + df["ATD"]
 df["dateTimeAta"] = df["ActBlockOnDate"] + df["ATA"]
+df["dateTimeStd"] = df["DATE"] + df["STD"]
 
 df2 = pd.read_csv(file_path2,sep=";")
 
-df = pd.merge(df,df2[['activityBase', 'TRANSITION HOUR']],left_on='DEP',right_on='activityBase',how='left')
+df = pd.merge(df,df2[['activityBase', 'TRANSITION HOUR', 'ZONE', 'SIGN ON', 'SIGN ON INTER']],left_on='DEP',right_on='activityBase',how='left')
 
-df = df.rename(columns={'TRANSITION HOUR': 'transitionDep'}).drop(columns=['activityBase'])
+df = df.rename(columns={'TRANSITION HOUR': 'transitionDep', 'ZONE': 'zoneDep', 'SIGN ON': 'signOnDep', 'SIGN ON INTER': 'signOnInterDep'}).drop(columns=['activityBase'])
 
-df = pd.merge(df,df2[['activityBase', 'TRANSITION HOUR']],left_on='ARR',right_on='activityBase',how='left')
+df = pd.merge(df,df2[['activityBase', 'TRANSITION HOUR', 'ZONE', 'SIGN ON', 'SIGN ON INTER']],left_on='ARR',right_on='activityBase',how='left')
 
-df = df.rename(columns={'TRANSITION HOUR': 'transitionArr'}).drop(columns=['activityBase'])
+df = df.rename(columns={'TRANSITION HOUR': 'transitionArr', 'ZONE': 'zoneArr', 'SIGN ON': 'signOnArr', 'SIGN ON INTER': 'signOnInterArr'}).drop(columns=['activityBase'])
 
-collection3 = ["transitionDep","transitionArr"]
-for field3 in collection3:
-    df[field3] = df[field3].fillna("0")
-    df[field3] = df[field3].astype(int)
+collection4 = ["transitionDep","transitionArr"]
+for field4 in collection4:
+    df[field4] = df[field4].fillna("0")
+    df[field4] = df[field4].astype(int)
+
+collection5 = ["zoneDep","zoneArr"]
+for field5 in collection5:
+    df[field5] = df[field5].fillna("0")
+    df[field5] = df[field5].astype(str)
+
+collection6 = ["signOnDep","signOnArr","signOnInterDep","signOnInterArr"]
+for field4 in collection4:
+    df[field4] = df[field4].fillna("0")
+    df[field4] = df[field4].astype(float)
+    df[field4] = df[field4].round(2)
 
 transitionDeltaDep = pd.to_timedelta(df["transitionDep"], unit="h")
 df["dateTimeAtdLt"] = df["dateTimeAtd"] + transitionDeltaDep
+df["dateTimeStdLt"] = df["dateTimeStd"] + transitionDeltaDep
 transitionDeltaArr = pd.to_timedelta(df["transitionArr"], unit="h")
 df["dateTimeAtaLt"] = df["dateTimeAta"] + transitionDeltaArr
 
@@ -154,6 +168,63 @@ isNewRoute = df["journeyPart"].isin(["head","headTail"])
 df["routeNumber"] = isNewRoute.cumsum()
 df["routeNumber"] = np.where(df["routeNumber"] == "0","0",df["routeNumber"])
 
+conditions4 = [(df["monthValidation"] == 1) & (df["journeyPart"] == "body"),
+               (df["monthValidation"] == 1) & (df["journeyPart"] == "tail")]
+
+choices4 = [df["dateTimeAtdLt"] - df["dateTimeAtaLt"].shift(1),
+            df["dateTimeAtdLt"] - df["dateTimeAtaLt"].shift(1)]
+
+df["transitTime"] = np.select(conditions4,choices4,default=0)
+
+df["transitTimeDecimal"] = df["transitTime"] / pd.Timedelta(hours=1)
+df["transitTimeDecimal"] = df["transitTimeDecimal"].round(2)
+
+conditions5 = [(df["monthValidation"] == 1) & (df["journeyPart"] == "body") & (df["transitTimeDecimal"] >= 2) & (df["transitTimeDecimal"] <= 4),
+               (df["monthValidation"] == 1) & (df["journeyPart"] == "body") & (df["transitTimeDecimal"] > 4) & (df["transitTimeDecimal"] <= 8.5),
+               (df["monthValidation"] == 1) & (df["journeyPart"] == "tail") & (df["transitTimeDecimal"] >= 2) & (df["transitTimeDecimal"] <= 4),
+               (df["monthValidation"] == 1) & (df["journeyPart"] == "tail") & (df["transitTimeDecimal"] > 4) & (df["transitTimeDecimal"] <= 8.5)
+]
+
+choices5 = [1,2,1,2]
+
+df["washUpCount"] = np.select(conditions5,choices5,default=0)
+
+df["yearCalculation2"] = np.where(df["monthValidation"] == 1,df["yearCalculation"],0)
+df["monthCalculation2"] = np.where(df["monthValidation"] == 1,df["monthCalculation"],0)
+
+conditions6 = [(df["zoneDep"] == "DOM") & (df["zoneArr"] == "DOM"),
+               (df["zoneDep"] == "DOM") & (df["zoneArr"] == "INT"),
+               (df["zoneDep"] == "INT") & (df["zoneArr"] == "DOM"),
+               (df["zoneDep"] == "INT") & (df["zoneArr"] == "INT")
+]
+
+choices6 = ["DOM","INT","INT","INT"]
+
+df["typeOfFlightRegions"] = np.select(conditions6,choices6,default="0")
+
+conditions7 = [df["typeOfFlightRegions"] == "DOM",
+               df["typeOfFlightRegions"] == "INT"
+]
+
+choices7 = [df["signOnDep"],
+            df["signOnInterDep"]
+]
+
+df["appliedSignOn"] = np.select(conditions7,choices7,default=0)
+df["appliedSignOn"] = pd.to_timedelta(df["appliedSignOn"], unit='h')
+
+df["signOnAsPlan"] = df["dateTimeStd"] - df["appliedSignOn"]
+
+df["lengthSignOnToBlockOff"] = df["dateTimeAtd"] - df["signOnAsPlan"] 
+df["lengthSignOnToBlockOff"] = (df["lengthSignOnToBlockOff"] / pd.Timedelta(hours=1)).round(2)
+
+conditions8 = [(df["monthValidation"] == 1) & (df["journeyPart"] == "head") & (df["lengthSignOnToBlockOff"] >= 2) & (df["lengthSignOnToBlockOff"] <= 4),
+               (df["monthValidation"] == 1) & (df["journeyPart"] == "head") & (df["lengthSignOnToBlockOff"] > 4) & (df["lengthSignOnToBlockOff"] <= 8.5)]
+
+choices8 = [1,2]
+
+df["washUpFirstLegCount"] = np.select(conditions8,choices8,default=0)
+
 df2 = df.groupby("routeNumber").agg(
     head = ("journeyPart",lambda x: (x == "head").sum()),
     body = ("journeyPart",lambda x: (x == "body").sum()),
@@ -176,7 +247,15 @@ df2 = df2.sort_values(by="routeNumber", ascending=True)
 df2["crewRouteRate"] = ((df2["crewRouteValidation"].sum())/(df2["routeNumber"].max()))  * 100
 df2["crewRouteRate"] = df2["crewRouteRate"].round(2)
 
-df.info()
+df3 = df.groupby(["yearCalculation2","monthCalculation2","Crew"]).agg(
+    washUpCount = ("washUpCount","sum"),
+    washUpFirstLegCount = ("washUpFirstLegCount","sum")
+).reset_index()
+df3["washUpCountTotal"] = df3["washUpCount"] + df3["washUpFirstLegCount"]
+df3 = df3[df3["yearCalculation2"] != 0]
+
+#df.info()
 
 df.to_csv(save_at,sep=";",index=False)
 df2.to_csv(save_at2,sep=";",index=False)
+df3.to_csv(save_at3,sep=";",index=False)
