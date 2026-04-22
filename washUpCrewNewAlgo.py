@@ -213,9 +213,9 @@ choices7 = [df["signOnDep"],
 df["appliedSignOn"] = np.select(conditions7,choices7,default=0)
 df["appliedSignOn"] = pd.to_timedelta(df["appliedSignOn"], unit='h')
 
-df["signOnAsPlan"] = df["dateTimeStd"] - df["appliedSignOn"]
+df["signOnAsPlan"] = df["dateTimeStdLt"] - df["appliedSignOn"]
 
-df["lengthSignOnToBlockOff"] = df["dateTimeAtd"] - df["signOnAsPlan"] 
+df["lengthSignOnToBlockOff"] = df["dateTimeAtdLt"] - df["signOnAsPlan"] 
 df["lengthSignOnToBlockOff"] = (df["lengthSignOnToBlockOff"] / pd.Timedelta(hours=1)).round(2)
 
 conditions8 = [(df["monthValidation"] == 1) & (df["journeyPart"] == "head") & (df["lengthSignOnToBlockOff"] >= 2) & (df["lengthSignOnToBlockOff"] <= 4),
