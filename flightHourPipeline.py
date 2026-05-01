@@ -7,6 +7,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(script_dir,"input","dfsFhAllowance.csv")
 save_at = os.path.join(script_dir,"output","flightHourAllowance.csv")
 save_at2 = os.path.join(script_dir,"output","detailFlightHourAllowance.csv")
+save_at3 = os.path.join(script_dir,"output","flightHourAllowanceWithoutPaymentTerm.csv")
 
 #Reading the files generated from AIMS
 #the required fields such as
@@ -86,6 +87,7 @@ def dataCleansingFormatting():
     
     df["Crew"] = np.select(conditions2,choices2,default="0")
     df["Crew"] = df["Crew"].astype(str).str.strip()
+    df.dropna(subset=["keyCockpitSmtFda"], inplace=True)
 
 dataCleansingFormatting()
 
@@ -108,6 +110,18 @@ hours = (total_minutes // 60).astype("Int64")
 minutes = (total_minutes % 60).astype("Int64")
 df2["totalFlightHour HR:MM"] = hours.astype(str) + "h " + minutes.astype(str).str.zfill(2) + "m"
 
+df3 = df[["YEAR","MONTH","RANK","Crew","blockDec"]]
+df3 = df3.groupby(["YEAR","MONTH","RANK","Crew"]).agg(
+    totalFlightHour = ("blockDec","sum")
+).reset_index()
+
+df3["totalFlightHour"] = df3["totalFlightHour"].round(2)
+total_minutes = (df3["totalFlightHour"] * 60).round()
+hours = (total_minutes // 60).astype("Int64")
+minutes = (total_minutes % 60).astype("Int64")
+df3["totalFlightHour HR:MM"] = hours.astype(str) + "h " + minutes.astype(str).str.zfill(2) + "m"
+
 #Exporting files from the pipeline to a folder called "output"
 df.to_csv(save_at2,sep=";",index=False)
 df2.to_csv(save_at,sep=";",index=False)
+df3.to_csv(save_at3,sep=";",index=False)
