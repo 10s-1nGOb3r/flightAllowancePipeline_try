@@ -33,6 +33,7 @@ df2["ID"] = df2["ID"].astype(str)
 df = pd.merge(df, df2[["ID","BASE"]], on="ID", how="left")
 df["BASE"] = df["BASE"].fillna("CGK")
 df= df.rename(columns={"BASE": "crewBase"})
+df["crewBase"] = df["crewBase"].str.replace(" ","")
 
 df["dateCount"] = pd.to_datetime(df["Date"], format="%d/%m/%Y", errors="coerce")
 df["dateCount"] = df["dateCount"].dt.strftime("%d/%m/%Y")
@@ -77,6 +78,7 @@ timeNow = datetime.now()
 #timeNow = "01/02/2026"
 #timeNow = datetime.strptime(timeNow, "%d/%m/%Y")
 #timeNow = timeNow.date()
+
 currentMonth = timeNow.month
 if currentMonth == 1:
     currentMonth = 12
@@ -127,7 +129,7 @@ df4_unique = df4[["keyCockpitSmtFda", "blockDec"]].drop_duplicates(subset=["keyC
 
 df = pd.merge(df, df4_unique.rename(columns={"blockDec": "blockDecDhcLastLeg"}),left_on="keyflightHourAllowance", right_on="keyCockpitSmtFda", how="left")
 
-df["blockDecDhcLastLeg"] = df["blockDecDhcLastLeg"].fillna(0)
+df["blockDecDhcLastLeg"] = df["blockDecDhcLastLeg"].fillna(0).astype(float)
 
 time_parts2 = df["FDP"].str.split(":")
 hours2 = time_parts2.str[0].astype(float)
@@ -136,7 +138,7 @@ fdpDecimal = hours2 + minutes_decimal2
 fdpDecimal = fdpDecimal.round(2)
 df["fdpDec"] = fdpDecimal
 
-df["fda"] = np.where((df["monthValidation"] == 1) & df["fdpDec"] > 0 & (df["dhcLastLegValidation"] == 1),df["fdpDec"] - df["blockDecDhcLastLeg"],0)
+df["fda"] = np.where((df["monthValidation"] == 1) & (df["fdpDec"] > 0) & (df["dhcLastLegValidation"] == 1),df["fdpDec"] - df["blockDecDhcLastLeg"],0)
 df["fda"] = df["fda"].round(2)
 
 df["dhcDayOneBefore"] = np.where((df["Duty"].str.contains("*",na=False,regex=False) == True) & (df["fda"] == 0) & (df["monthValidation"] == 1),1,0)
