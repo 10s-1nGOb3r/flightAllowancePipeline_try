@@ -9,6 +9,7 @@ file_path2 = os.path.join(script_dir,"input","smtMealsResCabin.csv")
 file_path3 = os.path.join(script_dir,"input","stationDb.csv")
 file_path4 = os.path.join(script_dir,"input","unassignedDutyLabel.csv")
 save_at = os.path.join(script_dir,"output","detailDailyRestForDoRevisement.csv")
+save_at2 = os.path.join(script_dir,"output","doRevisementSummary.csv")
 
 df = pd.read_csv(file_path,sep=";")
 df2 = pd.read_csv(file_path2,sep=";")
@@ -112,10 +113,11 @@ df3["unassignedValidation"] = df3["unassignedValidation"].astype(int)
 
 conditions4 = [(df3["monthValidation"] == 1) & (df3["dutyFieldForDayOffDetection"].str.contains("D/O", na=False, case=False)),
                (df3["monthValidation"] == 1) & (df3["dutyFieldForDayOffDetection"].str.contains("DO01", na=False, case=False)),
-               (df3["monthValidation"] == 1) & (df3["dutyFieldForDayOffDetection"].str.contains(">OFF", na=False, case=False))
+               (df3["monthValidation"] == 1) & (df3["dutyFieldForDayOffDetection"].str.contains(">OFF", na=False, case=False)),
+               (df3["monthValidation"] == 1) & (df3["dutyFieldForDayOffDetection"].str.contains("WFL", na=False, case=False))
 ]
 
-choices4 = [1,1,1]
+choices4 = [1,1,1,1]
 
 df3["dayoffValidation"] = np.select(conditions4,choices4,default=0)
 
@@ -129,14 +131,33 @@ conditions3 = [(df3["monthValidation"] == 1) & (df3["unassignedValidation"] == 0
 choices3 = [1,1]
 
 df3["assignableDayValidation"] = np.select(conditions3,choices3,default=0)
+df3["dayoffValidation2"] = np.where((df3["dayoffValidation"] == 1) & (df3["assignableDayValidation"] == 1),0,df3["dayoffValidation"])
 
-conditions4 = [(df3["monthValidation"] == 1) & (df3["unassignedValidation"] == 0) & (df3["dayoffValidation"] != 1),
-]
+df3["month"] = np.where(df3["monthValidation"] == 1,df3["beginOnLocalTime"].dt.month,0)
+df3["year"] = np.where(df3["monthValidation"] == 1,df3["beginOnLocalTime"].dt.year,0)
 
-choices4 = [1]
+#conditions4 = [(df3["monthValidation"] == 1) & (df3["unassignedValidation"] == 0) & (df3["dayoffValidation"] != 1),]
 
-df3["assignableDayValidationForComparisson"] = np.select(conditions4,choices4,default=0)
+#choices4 = [1]
 
-df3.info()
+#df3["assignableDayValidationForComparisson"] = np.select(conditions4,choices4,default=0)
+
+#df3.info()
+
+df6 = df3.groupby(["year","month","ID"]).agg(
+    assignableDayValidation = ("assignableDayValidation","sum"),
+    assignedDayoff = ("dayoffValidation2","sum")
+).reset_index()
+df6["dayInMonth"] = pd.to_datetime(df6["year"].astype(str) + "-" + df6["month"].astype(str) + "-1",format="%Y-%m-%d",errors="coerce").dt.days_in_month
+df6["dayInMonth"] = df6["dayInMonth"].fillna(0)
+df6["assignableDayValidation"] = df6["assignableDayValidation"].astype(float)
+df6["assignedDayoff"] = df6["assignedDayoff"].astype(float)
+df6["mandatoryDayoff"] = (df6["assignableDayValidation"] / df6["dayInMonth"]) * 8
+df6["mandatoryDayoff"] = df6["mandatoryDayoff"].round(0)
+df6["mandatoryDayoff"] = df6["mandatoryDayoff"].fillna(0)
+df6["dayOffRevisement"] = np.where(df6["mandatoryDayoff"] > df6["assignedDayoff"],df6["mandatoryDayoff"] - df6["assignedDayoff"],0)
+
+df6.info()
 
 df3.to_csv(save_at,sep=";",index=False)
+df6.to_csv(save_at2,sep=";",index=False)
