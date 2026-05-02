@@ -138,7 +138,14 @@ fdpDecimal = hours2 + minutes_decimal2
 fdpDecimal = fdpDecimal.round(2)
 df["fdpDec"] = fdpDecimal
 
-df["fda"] = np.where((df["monthValidation"] == 1) & (df["fdpDec"] > 0) & (df["dhcLastLegValidation"] == 1),df["fdpDec"] - df["blockDecDhcLastLeg"],0)
+conditions8 = [(df["monthValidation"] == 1) & (df["fdpDec"] > 0) & (df["dhcLastLegValidation"] == 1),
+               (df["monthValidation"] == 1) & (df["fdpDec"] > 0) & (df["dhcLastLegValidation"] == 0)]
+
+choices8 = [df["fdpDec"] - df["blockDecDhcLastLeg"],
+            df["fdpDec"]
+]
+
+df["fda"] = np.select(conditions8,choices8,default=0)
 df["fda"] = df["fda"].round(2)
 
 df["dhcDayOneBefore"] = np.where((df["Duty"].str.contains("*",na=False,regex=False) == True) & (df["fda"] == 0) & (df["monthValidation"] == 1),1,0)
