@@ -219,9 +219,11 @@ df["lengthSignOnToBlockOff"] = df["dateTimeAtdLt"] - df["signOnAsPlan"]
 df["lengthSignOnToBlockOff"] = (df["lengthSignOnToBlockOff"] / pd.Timedelta(hours=1)).round(2)
 
 conditions8 = [(df["monthValidation"] == 1) & (df["journeyPart"] == "head") & (df["lengthSignOnToBlockOff"] >= 2) & (df["lengthSignOnToBlockOff"] <= 4),
-               (df["monthValidation"] == 1) & (df["journeyPart"] == "head") & (df["lengthSignOnToBlockOff"] > 4) & (df["lengthSignOnToBlockOff"] <= 8.5)]
+               (df["monthValidation"] == 1) & (df["journeyPart"] == "head") & (df["lengthSignOnToBlockOff"] > 4) & (df["lengthSignOnToBlockOff"] <= 8.5),
+               (df["monthValidation"] == 1) & (df["journeyPart"] == "headtail") & (df["lengthSignOnToBlockOff"] >= 2) & (df["lengthSignOnToBlockOff"] <= 4),
+               (df["monthValidation"] == 1) & (df["journeyPart"] == "headtail") & (df["lengthSignOnToBlockOff"] > 4) & (df["lengthSignOnToBlockOff"] <= 8.5)]
 
-choices8 = [1,2]
+choices8 = [1,2,1,2]
 
 df["washUpFirstLegCount"] = np.select(conditions8,choices8,default=0)
 
